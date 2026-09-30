@@ -1,0 +1,34 @@
+project_id = "goodchapter-crm"
+
+[api]
+enabled = true
+port = 56321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 56322
+shadow_port = 56320
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 56323
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3100"
+additional_redirect_urls = ["http://127.0.0.1:3100/auth/callback"]
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[storage]
+enabled = true
+file_size_limit = "4MiB"

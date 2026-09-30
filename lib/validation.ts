@@ -1,0 +1,196 @@
+import { z } from "zod";
+const text = z.string().trim().max(5000);
+const name = text.min(1).max(200);
+const id = z.uuid();
+const optionalId = id.nullable();
+const date = z.iso.date().nullable();
+const amount = z.number().min(0).max(100000000).multipleOf(0.01);
+const email = z.union([z.email(), z.literal("")]);
+const url = z.union([
+  z.url().refine((u) => u.startsWith("https://"), "Use an HTTPS image URL"),
+  z.literal(""),
+]);
+const common = { id: id.optional() };
+const line = z.object({
+  description: name,
+  quantity: z.number().int().min(1).max(1000000),
+  unit_price: amount,
+  discount_pct: z.number().min(0).max(100).multipleOf(0.01),
+  tax_rate: z.number().min(0).max(100).multipleOf(0.01),
+  hsn: text.max(20),
+  details: text,
+  category: name,
+});
+export const schemas = {
+  save_client: z.object({
+    ...common,
+    name,
+    organisation: text,
+    email,
+    phone: text,
+    billing_address: text,
+    shipping_address: text,
+    gstin: text.max(20),
+    notes: text,
+    archived: z.boolean().optional(),
+  }),
+  save_lead: z.object({
+    ...common,
+    name,
+    organisation: text,
+    email,
+    phone: text,
+    source: z.enum([
+      "Website",
+      "Referral",
+      "Instagram",
+      "WhatsApp",
+      "Walk-in",
+      "Other",
+    ]),
+    stage: z.enum([
+      "New",
+      "Contacted",
+      "Quote Sent",
+      "Follow-up",
+      "Won",
+      "Lost",
+    ]),
+    brief: text,
+    quantity: z.number().int().positive().nullable(),
+    budget: amount.nullable(),
+    required_date: date,
+    assigned_to: optionalId,
+    client_id: optionalId,
+    notes: text,
+  }),
+  save_product: z.object({
+    ...common,
+    name,
+    category: name,
+    description: text,
+    customisation: text,
+    image_url: url,
+    unit_price: amount,
+    archived: z.boolean().optional(),
+  }),
+  save_vendor: z.object({
+    ...common,
+    name,
+    category: name,
+    contact_name: text,
+    email,
+    phone: text,
+    city: text,
+    notes: text,
+    archived: z.boolean().optional(),
+  }),
+  save_followup: z.object({
+    ...common,
+    title: name,
+    lead_id: optionalId,
+    client_id: optionalId,
+    order_id: optionalId,
+    assigned_to: optionalId,
+    due_at: z.iso.datetime({ offset: true }),
+    done: z.boolean(),
+    priority: z.enum(["High", "Medium", "Low"]),
+    notes: text,
+  }),
+  save_quote: z.object({
+    ...common,
+    title: name,
+    client_id: id,
+    lead_id: optionalId,
+    valid_until: date,
+    tax_mode: z.enum(["None", "CGST/SGST", "IGST"]),
+    items: z.array(line).min(1).max(100),
+    terms: text,
+  }),
+  quote_status: z.object({
+    id,
+    status: z.enum(["Draft", "Sent", "Accepted", "Rejected"]),
+  }),
+  convert_lead: z.object({ id }),
+  revise_quote: z.object({ id }),
+  convert_quote: z.object({ id }),
+  save_order: z.object({
+    id,
+    status: z.enum([
+      "Confirmed",
+      "Design & Approval",
+      "Production",
+      "Quality Check",
+      "Dispatched",
+      "Delivered",
+      "Cancelled",
+    ]),
+    required_date: date,
+    shipping_address: text,
+    courier: text,
+    tracking_ref: text,
+    dispatched_on: date,
+    delivered_on: date,
+    approval_not_required: z.boolean(),
+    notes: text,
+  }),
+  assign_vendor: z.object({
+    order_id: id,
+    item_index: z.number().int().nonnegative(),
+    vendor_id: optionalId,
+  }),
+  save_cost: z.object({
+    order_id: id,
+    item_index: z.number().int().nonnegative(),
+    amount,
+  }),
+  add_artwork: z.object({
+    order_id: id,
+    file_name: name,
+    storage_path: text.min(1),
+    notes: text,
+  }),
+  review_artwork: z.object({
+    id,
+    status: z.enum(["Pending", "Approved", "Changes requested"]),
+    notes: text,
+  }),
+  create_invoice: z.object({ id, due_on: date }),
+  issue_invoice: z.object({ id, due_on: date }),
+  share_document: z.object({ id, enabled: z.boolean() }),
+  log_payment: z.object({
+    order_id: id,
+    amount: amount.positive(),
+    kind: z.enum(["Receipt", "Refund"]),
+    method: z.enum(["UPI", "Bank Transfer", "Cash", "Card", "Cheque", "Other"]),
+    payment_date: z.iso.date(),
+    reference: text,
+    notes: text,
+  }),
+  save_settings: z.object({
+    company_name: name,
+    email,
+    phone: text,
+    address: text,
+    gstin: text.max(20),
+    bank_details: text,
+    terms: text,
+  }),
+  update_user: z.object({
+    id,
+    full_name: name,
+    role: z.enum(["owner", "staff"]),
+    active: z.boolean(),
+  }),
+} as const;
+export type Action = keyof typeof schemas;
+export function validateMutation(input: unknown) {
+  const env = z
+    .object({
+      action: z.enum(Object.keys(schemas) as [Action, ...Action[]]),
+      payload: z.unknown(),
+      key: id,
+    })
+    .parse(input);
+  return { ...env, payload: schemas[env.action].parse(env.payload) };
+}
