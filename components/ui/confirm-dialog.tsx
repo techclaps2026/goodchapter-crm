@@ -88,10 +88,10 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => settle(true)}
                 className={cn(
-                  "rounded-app px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90",
+                  "rounded-app px-3 py-2 text-sm font-medium transition-opacity hover:opacity-90",
                   destructive
-                    ? "bg-destructive text-destructive-foreground"
-                    : "bg-primary",
+                    ? "bg-destructive text-white"
+                    : "bg-primary text-primary-foreground",
                 )}
               >
                 {options?.confirmLabel ?? "Confirm"}

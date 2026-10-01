@@ -30,6 +30,7 @@ import {
   Droplets,
   Flame,
   ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -1264,6 +1265,12 @@ export default function CRM({
             <span className="workspace-name">
               The Good Chapter{" "}
               <span style={{ padding: "0 10px", opacity: 0.4 }}>/</span>{" "}
+              {(section === "users" || section === "settings") && (
+                <>
+                  <Link href="/account">User settings</Link>
+                  <span style={{ padding: "0 10px", opacity: 0.4 }}>/</span>
+                </>
+              )}
               {titles[section]}
             </span>
           </div>
@@ -1294,6 +1301,11 @@ export default function CRM({
           </div>
         )}
         <main className="content">
+          {(section === "users" || section === "settings") && (
+            <Link className="settings-back-link" href="/account">
+              <ArrowLeft size={15} /> Back to User settings
+            </Link>
+          )}
           {recordId && (
             <div className="breadcrumb">
               <Link href={"/" + section}>{titles[section]}</Link> / {heading}

@@ -438,6 +438,17 @@ p {
   width: 100%;
   max-width: 880px;
 }
+.settings-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  text-decoration: none;
+}
+.settings-back-link:hover { text-decoration: underline; }
 .team-user-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
