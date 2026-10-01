@@ -8,7 +8,7 @@ Use a separate Supabase project and Vercel project. Never link the CLI to Tripcl
 2. Apply `supabase/migrations/20260929180000_goodchapter.sql` to the empty project. Prefer Supabase CLI migrations; for a one-off dashboard application, record this version in migration history before adopting the CLI. The migration creates settings only, with no business/customer records.
 3. Set Auth Site URL to the deployed CRM origin. Allow its `/auth/callback` URL and the deliberate staging/local callback URLs. Disable public email signup and anonymous sign-ins. Team invitations use the admin API.
 4. Configure Resend custom SMTP for Supabase Auth. Use a verified sending domain, host `smtp.resend.com`, port `465`, username `resend`, and an API key entered directly into Supabase's SMTP password field. Set the sender name to The Good Chapter. Supabase's default mail server is not a production mail service. See [Supabase SMTP](https://supabase.com/docs/guides/auth/auth-smtp) and [Resend setup](https://resend.com/docs/send-with-supabase-smtp).
-5. Apply the versioned Magic Link and Invite User templates in `supabase/templates/`. Their buttons use token-hash callbacks instead of URL fragments. In a separate staging project, Site URL must point to staging. Review the remote Auth config diff before `supabase config push`: this repository's `supabase/config.toml` is for local development and must not overwrite the production Site URL, MFA or email-confirmation settings.
+5. Apply the versioned Magic Link, Invite User, and Recovery templates in `supabase/templates/`. Their buttons use token-hash callbacks instead of URL fragments. A recovery callback signs the user in and opens `/account/password` to choose a new password. In a separate staging project, Site URL must point to staging. Review the remote Auth config diff before `supabase config push`: this repository's `supabase/config.toml` is for local development and must not overwrite the production Site URL, MFA or email-confirmation settings.
 6. Provision the initial owner through the Supabase admin API or Auth Users page. Once the exact user exists, promote that specific UUID in SQL Editor:
 
 ```sql
@@ -18,7 +18,7 @@ set role = 'owner', active = true
 where id = 'REPLACE_WITH_OWNER_UUID'::uuid;
 ```
 
-Verify exactly one row was updated and the email/UUID match the intended owner. Other invited accounts default to staff. Uninvited signup accounts default inactive. There is no public owner-bootstrap endpoint or seeded password. The initial owner `parasnarula71@yahoo.in` was created without sending an invitation on 1 October 2026; they can request their own sign-in link from the deployed login page.
+Verify exactly one row was updated and the email/UUID match the intended owner. Other invited accounts default to staff. Uninvited signup accounts default inactive. There is no public owner-bootstrap endpoint or seeded password. The initial owner `parasnarula71@yahoo.in` was created without sending an invitation or password on 1 October 2026; they can use **Set or reset password** on the deployed login page.
 
 CLI outline (after authenticating; use only the new project reference):
 

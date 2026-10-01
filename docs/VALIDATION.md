@@ -25,6 +25,7 @@ Use fictional records only. Record exact results here before release.
 - Use independent simultaneous database clients to retry conversion and payment recording.
 - Verify private file access, no anonymous downloads/overwrites, 4 MB upload limit and signed-link expiry.
 - Validate magic-link/invitation delivery through Resend SMTP and actual document email delivery to an approved test address.
+- Validate the recovery email, token-hash callback, password setup, password sign-in and email-link fallback with a real owner account.
 - Reassess hosting account capacity and commercial eligibility before customer work.
 
 The production URL is deployed, but customer work should wait for these live checks.

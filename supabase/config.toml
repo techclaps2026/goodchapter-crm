@@ -37,6 +37,10 @@ content_path = "./supabase/templates/magic_link.html"
 subject = "You're invited to The Good Chapter"
 content_path = "./supabase/templates/invite.html"
 
+[auth.email.template.recovery]
+subject = "Set your studio password | The Good Chapter"
+content_path = "./supabase/templates/recovery.html"
+
 [storage]
 enabled = true
 file_size_limit = "4MiB"

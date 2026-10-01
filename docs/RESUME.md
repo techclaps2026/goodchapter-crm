@@ -28,7 +28,8 @@ quotations, orders, artwork approval, invoices, payments and reports.
   Auth SMTP uses a separate Resend key from Vercel document sending.
 - `parasnarula71@yahoo.in` is the sole initial Auth user and has an active
   owner profile. It was created without sending an invitation or setting a
-  password. The owner can request a sign-in link on the CRM login page.
+  password. The owner can choose one through **Set or reset password** on the
+  CRM login page. Email-link sign-in remains available.
 - Resend's root domain `thegoodchapter.in` is verified. Sender is
   `studio@thegoodchapter.in`; the user supplied the two sending keys directly
   to Supabase SMTP and Vercel. No real email has been sent or delivery tested.
@@ -55,8 +56,9 @@ quotations, orders, artwork approval, invoices, payments and reports.
 
 ## Remaining checks
 
-1. The owner should visit the production login page, request a link to their
-   Yahoo address and confirm that Resend SMTP delivers it and login succeeds.
+1. The owner should visit the production login page, choose **Set or reset
+   password**, enter their Yahoo address, follow the recovery email and choose
+   a password. Confirm Resend SMTP delivers it and password sign-in succeeds.
    No link was sent automatically during provisioning.
 2. Use an approved test recipient to check CRM document email, sender,
    reply-to, branding and revocable links. Do not send to a real customer as

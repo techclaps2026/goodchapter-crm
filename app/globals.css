@@ -317,6 +317,17 @@ p {
   border-top: 1px solid #ffffff25;
   padding: 17px 9px 0;
 }
+.sidebar-account-link {
+  display: inline-block;
+  margin: 12px 0 0 45px;
+  color: #aaa295;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sidebar-account-link:hover {
+  color: var(--nav-text);
+}
 .avatar {
   width: 33px;
   height: 33px;
@@ -750,11 +761,51 @@ tr.clickable:hover {
   background: var(--card);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 22px;
+}
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.auth-brand img {
+  width: 210px;
+  max-width: 100%;
+  height: auto;
+}
+.auth-brand span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted-foreground);
 }
 .auth-card h1 {
   font-family: var(--font-display);
   font-size: 46px;
+}
+.auth-intro {
+  color: var(--muted-foreground);
+  margin-top: 10px;
+}
+.auth-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.auth-options button,
+.auth-options a {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-invite-note {
+  font-size: 12px;
+  margin-top: 2px;
 }
 .auth-card ol {
   padding-left: 18px;
@@ -955,6 +1006,12 @@ tr.clickable:hover {
   }
   .auth-card {
     padding: 27px;
+  }
+  .auth-screen {
+    align-items: start;
+  }
+  .auth-card h1 {
+    font-size: 40px;
   }
   .document {
     padding: 16px;

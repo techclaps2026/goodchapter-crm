@@ -29,9 +29,11 @@ Supabase SMTP: host `smtp.resend.com`, port `465`, username `resend`;
 sender name `The Good Chapter`, sender address `studio@thegoodchapter.in`.
 Vercel also needs `RESEND_FROM_EMAIL` and `RESEND_REPLY_TO` as above.
 
-The production Auth callback and versioned token-hash email templates were
+The production Auth callback and versioned magic-link, invitation and
+password-recovery token-hash email templates were
 configured on 1 October 2026. The initial owner was created without sending
-an invitation. They can request a sign-in link from the CRM login page. Real
+an invitation or setting a password. They can request a password setup link
+from the CRM login page. Real
 SMTP and CRM document-email delivery still need to be checked with an
 approved recipient.
 

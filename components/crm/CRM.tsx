@@ -1125,6 +1125,11 @@ export default function CRM({
               </button>
             )}
           </div>
+          {!s.demo && (
+            <Link href="/account/password" className="sidebar-account-link">
+              Set or change password
+            </Link>
+          )}
         </div>
       </aside>
       <div className="workspace">

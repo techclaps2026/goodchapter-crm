@@ -2,7 +2,7 @@
 
 A private studio workspace for custom merchandise and corporate gifting. Built with Next.js, Tailwind, shadcn/Radix, React Query, Supabase and Resend. The independent source provenance is recorded in [SOURCE.md](SOURCE.md).
 
-Live application: [app.thegoodchapter.in](https://app.thegoodchapter.in). The first owner can request a passwordless sign-in link at `/login`.
+Live application: [app.thegoodchapter.in](https://app.thegoodchapter.in). Invited users sign in with email and password. The first owner can use **Set or reset password** on `/login` to choose a password through a secure email link; email-link sign-in remains available.
 
 ## Local preview
 

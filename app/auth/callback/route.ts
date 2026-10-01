@@ -8,14 +8,23 @@ export async function GET(request: Request) {
     type = url.searchParams.get("type");
   if (code) {
     const { error } = await db.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL("/", url.origin));
+    if (!error)
+      return NextResponse.redirect(
+        new URL(type === "recovery" ? "/account/password" : "/", url.origin),
+      );
   }
   if (
     token_hash &&
-    (type === "email" || type === "invite" || type === "magiclink")
+    (type === "email" ||
+      type === "invite" ||
+      type === "magiclink" ||
+      type === "recovery")
   ) {
     const { error } = await db.auth.verifyOtp({ token_hash, type });
-    if (!error) return NextResponse.redirect(new URL("/", url.origin));
+    if (!error)
+      return NextResponse.redirect(
+        new URL(type === "recovery" ? "/account/password" : "/", url.origin),
+      );
   }
   return NextResponse.redirect(
     new URL(
