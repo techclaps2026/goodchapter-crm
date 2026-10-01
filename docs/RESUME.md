@@ -1,65 +1,64 @@
 # Current checkpoint — 1 October 2026
 
-## Application and source
-
 The independent CRM is in the private repository
-https://github.com/techclaps2026/goodchapter-crm. Initial GitHub CI passed.
-Both Tripclaps and BML references were refreshed; their local changes were
-preserved. Provenance is in [SOURCE.md](../SOURCE.md).
-
+https://github.com/techclaps2026/goodchapter-crm. Tripclaps and BML were
+refreshed before implementation; provenance is in [SOURCE.md](../SOURCE.md).
 The first release covers leads, clients, follow-ups, products, vendors,
-quotations, orders, artwork approvals, invoices, payments and reports. Local
-demo records are fictional and disappear on server restart. They never touch
-the live Supabase project.
+quotations, orders, artwork approval, invoices, payments and reports.
 
-## Verification
+## Live services
 
-- Node 24: lint, production build, 13 unit/PDF tests, 21 database scenarios,
-  and npm audit all passed before the latest migration and date parser change.
-  Repeat final checks after the last commit.
-- Browser: enquiry through settled invoice was completed with fictional
-  records; approval gate and vendor assignment worked. A branded quote PDF
-  and six-page invoice were visually inspected. The local date parser was fixed
-  and a changed order deadline was verified after reload.
-- Supabase project `putepoxwvtsipgrxhmlv` has migrations
-  `20260929180000` and `20261001080000`. A linked transaction checked roles,
-  pricing, quote immutability, conversion and payment retries, approval gate,
-  settlement, sharing, revocation and cancellation. It rolled back all test
-  records. Live Auth user, business and payment counts were zero afterward.
-- The live database security advisor still flags only intentional public
-  document sharing and role-checked CRM RPC functions. The unnecessary
-  anonymous helper execution grants were removed.
+- Production URL: https://goodchapter-crm.vercel.app. The application push
+  deployed automatically and the production alias points to it. CI run
+  `36868512775` succeeded for commit `86d0ca1`.
+- Vercel project `techclaps/goodchapter-crm` is linked to the private GitHub
+  repository. Production has Supabase, Resend, `CRM_DEMO_MODE=false` and exact
+  `NEXT_PUBLIC_APP_URL` variables. Server credentials are secret values.
+- Vercel's additional SSO deployment gate was disabled so staff can use the
+  app's Supabase Auth login and customers can open a revocable document link.
+  The public login page returns HTTP 200, the CRM API returns 401 without an
+  application session, an invalid share link returns 404, and `/` redirects
+  to `/login` without a session.
+- Supabase project `putepoxwvtsipgrxhmlv` has both versioned migrations.
+  Public signup is disabled, the production Site URL and callback are set,
+  and branded Magic Link and Invite User templates are configured. Supabase
+  Auth SMTP uses a separate Resend key from Vercel document sending.
+- `parasnarula71@yahoo.in` is the sole initial Auth user and has an active
+  owner profile. It was created without sending an invitation or setting a
+  password. The owner can request a sign-in link on the CRM login page.
+- Resend's root domain `thegoodchapter.in` is verified. Sender is
+  `studio@thegoodchapter.in`; the user supplied the two sending keys directly
+  to Supabase SMTP and Vercel. No real email has been sent or delivery tested.
 
-## Provisioning
+## Verification completed
 
-- Vercel project `techclaps/goodchapter-crm` exists, linked locally, with
-  Next.js, Node 24, `npm ci` and `npm run build`. Supabase URL, anon key,
-  server service key and demo=false were submitted as production environment
-  values. The CLI environment listing still needs a successful readback. The
-  local Vercel CLI later switched to the separate `parass71` login, which
-  currently receives 403 for the Techclaps project. Sign back into
-  `techclaps2026` before continuing Vercel configuration.
-- Techclaps is on Vercel Hobby. Vercel restricts Hobby to non-commercial use.
-  No deployment or paid plan change has been made.
-- The user replaced the removed `mail.thegoodchapter.in` Resend domain with
-  the verified root domain `thegoodchapter.in`. The root DKIM record resolves.
-  The user created separate Resend keys and reported Supabase Auth SMTP
-  configured with `studio@thegoodchapter.in`. Vercel shows `RESEND_API_KEY`
-  saved and `RESEND_FROM_EMAIL` being entered; verify that sender and
-  `RESEND_REPLY_TO` are saved before testing. See
-  [EMAIL-SETUP.md](EMAIL-SETUP.md).
-- Initial owner address supplied by the user: `parasnarula71@yahoo.in`. No
-  Auth user or email invitation has been created yet.
+- GitHub CI on the deployed source passed lint, Node 24 production build,
+  13 unit/PDF tests, 21 fresh-schema database scenarios, type checking and
+  npm audit.
+- A real, passwordless owner session was generated without sending email.
+  Auth verification succeeded, the owner could read workspace settings, and
+  anonymous direct profile reads were denied by PostgreSQL.
+- `scripts/verify-linked.sql` exercised linked Supabase permissions, pricing,
+  conversion, payments, artwork approval, sharing and cancellation in a
+  transaction that rolled back fictional records. Business records remain
+  empty. The initial owner Auth user is the only persistent account.
+- Before the request to stop browser access, the local fictional browser
+  journey reached a settled ₹55,814 invoice; approval, vendor assignment and
+  PDF pagination were inspected. No browser has been used for current
+  deployment work.
 
-## Remaining release work
+## Remaining checks
 
-1. Confirm an eligible commercial hosting plan. Finish Vercel environment
-   values, deploy and set the exact HTTPS app URL.
-2. Configure Resend sender/key and Supabase Auth SMTP, redirect URLs, and
-   token-hash email templates. Invite the named owner, then promote that
-   specific Auth UUID to owner.
-3. Use a separate staging environment for real JWT/Storage and email delivery
-   tests before business use. Mobile and shared-document browser inspection
-   still need completion; user requested no further browser access for now.
+1. The owner should visit the production login page, request a link to their
+   Yahoo address and confirm that Resend SMTP delivers it and login succeeds.
+   No link was sent automatically during provisioning.
+2. Use an approved test recipient to check CRM document email, sender,
+   reply-to, branding and revocable links. Do not send to a real customer as
+   the first test.
+3. Check real staff JWT permissions, private Storage, simultaneous
+   transaction retries, and mobile/shared-document layouts in a separate
+   staging environment before customer work. User requested no browser access
+   for now, so visual inspection remains open.
 
-No production deployment or real email has occurred.
+The Techclaps Vercel workspace is Hobby, as the user specified for this
+project. Reassess hosting terms and account capacity before commercial use.

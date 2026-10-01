@@ -25,9 +25,9 @@ Use fictional records only. Record exact results here before release.
 - Use independent simultaneous database clients to retry conversion and payment recording.
 - Verify private file access, no anonymous downloads/overwrites, 4 MB upload limit and signed-link expiry.
 - Validate magic-link/invitation delivery through Resend SMTP and actual document email delivery to an approved test address.
-- Check hosting account capacity and commercial eligibility before production.
+- Reassess hosting account capacity and commercial eligibility before customer work.
 
-Production is not ready until these live staging checks and configuration are complete.
+The production URL is deployed, but customer work should wait for these live checks.
 
 ## 1 October checkpoint
 
@@ -44,6 +44,15 @@ corrected and a deadline persisted across reload. Quote branding and invoice
 pagination were inspected. Shared-page and mobile visual checks remain open;
 browser access was stopped at the user's request.
 
-Vercel project creation and basic build settings are complete. Resend domain
-verification was reported by the user. Hosting eligibility, API key, SMTP,
-Auth configuration, owner invitation and real delivery tests remain open.
+The latest GitHub CI passed and Vercel deployed it to
+`https://goodchapter-crm.vercel.app`. Production environment variable names
+and types were verified. Supabase production Auth Site URL and callback,
+disabled public signup, and branded Magic Link/Invite User templates were
+configured. An active owner profile for `parasnarula71@yahoo.in` was created
+without sending an email. The verified Resend domain, separate API keys,
+Supabase SMTP and Vercel sender settings were supplied by the user. Public
+HTTP checks returned 200 for login, 401 for unauthenticated CRM data and 404
+for an invalid share link. A real owner JWT accessed workspace settings; an
+anonymous profile query was denied. Real SMTP delivery, interactive owner
+login, document-email delivery, staff JWT/Storage checks and visual
+inspection remain open.
