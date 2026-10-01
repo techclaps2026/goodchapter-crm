@@ -34,16 +34,16 @@ Do not run a remote reset. Do not run fictional demo seeding against a remote pr
 
 Import the private GitHub repository into the Techclaps workspace as `goodchapter-crm`. Select Next.js, repository root `.`, Node 24, `npm ci`, and `npm run build`; use framework defaults for output. Configure these environment values for the corresponding Supabase environment:
 
-| Variable                        | Purpose                                                            |
-| ------------------------------- | ------------------------------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`      | New project's API URL                                              |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon/publishable key; RLS protects data                     |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Server-only invitation credential                                  |
-| `NEXT_PUBLIC_APP_URL`           | Exact HTTPS CRM origin                                             |
-| `RESEND_API_KEY`                | Server-only sending key                                            |
-| `RESEND_FROM_EMAIL`             | Verified sender, e.g. `The Good Chapter <hello@thegoodchapter.in>` |
-| `RESEND_REPLY_TO`               | Business reply address                                             |
-| `CRM_DEMO_MODE`                 | `false`                                                            |
+| Variable                        | Purpose                                                        |
+| ------------------------------- | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | New project's API URL                                          |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon/publishable key; RLS protects data                 |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Server-only invitation credential                              |
+| `NEXT_PUBLIC_APP_URL`           | Exact HTTPS CRM origin                                         |
+| `RESEND_API_KEY`                | Server-only sending key                                        |
+| `RESEND_FROM_EMAIL`             | Verified sender, `The Good Chapter <studio@thegoodchapter.in>` |
+| `RESEND_REPLY_TO`               | Business reply address                                         |
+| `CRM_DEMO_MODE`                 | `false`                                                        |
 
 Enter secrets in Vercel/Supabase settings, not in Git or chat. Public env values are embedded at build time; redeploy after changing them. Keep staging and production variables distinct. A build without Supabase variables shows a setup screen and cannot be treated as a usable production release.
 

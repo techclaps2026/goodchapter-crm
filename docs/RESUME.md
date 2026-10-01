@@ -43,7 +43,10 @@ the live Supabase project.
   No deployment or paid plan change has been made.
 - The user replaced the removed `mail.thegoodchapter.in` Resend domain with
   the verified root domain `thegoodchapter.in`. The root DKIM record resolves.
-  The sender, API key and Supabase Auth SMTP remain unconfigured; see
+  The user created separate Resend keys and reported Supabase Auth SMTP
+  configured with `studio@thegoodchapter.in`. Vercel shows `RESEND_API_KEY`
+  saved and `RESEND_FROM_EMAIL` being entered; verify that sender and
+  `RESEND_REPLY_TO` are saved before testing. See
   [EMAIL-SETUP.md](EMAIL-SETUP.md).
 - Initial owner address supplied by the user: `parasnarula71@yahoo.in`. No
   Auth user or email invitation has been created yet.
