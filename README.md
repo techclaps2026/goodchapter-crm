@@ -2,6 +2,8 @@
 
 A private studio workspace for custom merchandise and corporate gifting. Built with Next.js, Tailwind, shadcn/Radix, React Query, Supabase and Resend. The independent source provenance is recorded in [SOURCE.md](SOURCE.md).
 
+Live application: [app.thegoodchapter.in](https://app.thegoodchapter.in). The first owner can request a passwordless sign-in link at `/login`.
+
 ## Local preview
 
 Use Node 24 and npm.

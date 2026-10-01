@@ -8,8 +8,10 @@ quotations, orders, artwork approval, invoices, payments and reports.
 
 ## Live services
 
-- Production URL: https://goodchapter-crm.vercel.app. The application push
-  deployed automatically and the production alias points to it. CI run
+- Production URL: https://app.thegoodchapter.in. GoDaddy's `app` CNAME and
+  `_vercel` TXT records verified ownership; Vercel serves it over HTTPS. The
+  original `https://goodchapter-crm.vercel.app` alias remains attached.
+  The application push deployed automatically. CI run
   `36868512775` succeeded for commit `86d0ca1`.
 - Vercel project `techclaps/goodchapter-crm` is linked to the private GitHub
   repository. Production has Supabase, Resend, `CRM_DEMO_MODE=false` and exact
@@ -20,7 +22,8 @@ quotations, orders, artwork approval, invoices, payments and reports.
   application session, an invalid share link returns 404, and `/` redirects
   to `/login` without a session.
 - Supabase project `putepoxwvtsipgrxhmlv` has both versioned migrations.
-  Public signup is disabled, the production Site URL and callback are set,
+  Public signup is disabled, the primary Site URL is the custom host, both
+  custom-host and Vercel-alias callback URLs are allowed,
   and branded Magic Link and Invite User templates are configured. Supabase
   Auth SMTP uses a separate Resend key from Vercel document sending.
 - `parasnarula71@yahoo.in` is the sole initial Auth user and has an active
@@ -38,6 +41,9 @@ quotations, orders, artwork approval, invoices, payments and reports.
 - A real, passwordless owner session was generated without sending email.
   Auth verification succeeded, the owner could read workspace settings, and
   anonymous direct profile reads were denied by PostgreSQL.
+- A generated token-hash callback on the custom HTTPS host returned to `/`
+  with a session cookie. Supabase's default Auth redirect also resolves to
+  `https://app.thegoodchapter.in`. This did not send email.
 - `scripts/verify-linked.sql` exercised linked Supabase permissions, pricing,
   conversion, payments, artwork approval, sharing and cancellation in a
   transaction that rolled back fictional records. Business records remain

@@ -59,4 +59,4 @@ Verify the sending domain and DNS records in Resend. Use a sending key limited t
 
 ## Release gate
 
-The production deployment is live at `https://goodchapter-crm.vercel.app` with Supabase Auth protecting CRM data. The owner's first login, real SMTP/Resend delivery, signed-in owner/staff and Storage checks, and mobile/shared-document visual inspection remain release checks before using it for customer work. Keep fictional staging records out of production.
+The production deployment is live at `https://app.thegoodchapter.in` with Supabase Auth protecting CRM data. The Vercel alias `https://goodchapter-crm.vercel.app` remains available, and both callback URLs are allowed by Supabase Auth. GoDaddy DNS uses an `app` CNAME to Vercel and a `_vercel` TXT ownership record. The owner's first interactive login, real SMTP/Resend delivery, signed-in staff and Storage checks, and mobile/shared-document visual inspection remain release checks before using it for customer work. Keep fictional staging records out of production.

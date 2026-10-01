@@ -44,8 +44,9 @@ corrected and a deadline persisted across reload. Quote branding and invoice
 pagination were inspected. Shared-page and mobile visual checks remain open;
 browser access was stopped at the user's request.
 
-The latest GitHub CI passed and Vercel deployed it to
-`https://goodchapter-crm.vercel.app`. Production environment variable names
+The latest GitHub CI passed and Vercel deployed it. The custom production
+domain is `https://app.thegoodchapter.in`; the original Vercel alias remains.
+Production environment variable names
 and types were verified. Supabase production Auth Site URL and callback,
 disabled public signup, and branded Magic Link/Invite User templates were
 configured. An active owner profile for `parasnarula71@yahoo.in` was created
@@ -56,3 +57,10 @@ for an invalid share link. A real owner JWT accessed workspace settings; an
 anonymous profile query was denied. Real SMTP delivery, interactive owner
 login, document-email delivery, staff JWT/Storage checks and visual
 inspection remain open.
+
+GoDaddy's authoritative DNS serves the exact Vercel CNAME and ownership TXT
+record for `app.thegoodchapter.in`. Vercel verified the host and serves a
+valid HTTPS certificate. The custom host returned 200 for login, 401 for the
+unauthenticated CRM API, 404 for an invalid document link, and a redirect to
+its own `/login` from `/`. A generated token-hash Auth callback set a session
+cookie and redirected to the custom host. No email was sent for this test.
