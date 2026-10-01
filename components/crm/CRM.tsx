@@ -1192,7 +1192,7 @@ export default function CRM({
       </>
     );
   else if (section === "reports") body = <Reports s={s} />;
-  else if (section === "social") body = <SocialMedia role={s.profile.role} />;
+  else if (section === "social") body = <SocialMedia role={s.profile.role} userId={s.profile.id} demo={s.demo} />;
   else if (section === "account")
     body = <AccountSettings s={s} refresh={refresh} />;
   else

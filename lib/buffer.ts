@@ -4,7 +4,9 @@ import { decryptToken } from "@/lib/social/providers";
 
 export type BufferOrganization = { id: string; name: string };
 export type BufferChannel = { id: string; name: string; service: string };
-export type BufferPost = { id: string; text: string; status: string; dueAt: string | null; channelId: string };
+export type BufferAsset = { source: string; thumbnail: string; mimeType: string; type: string };
+export type BufferPost = { id: string; text: string; status: string; dueAt: string | null; channelId: string; assets: BufferAsset[] };
+export type BufferTag = { id: string; name: string; color: string; isLocked: boolean };
 
 export async function bufferQuery<T>(key: string, query: string): Promise<T> {
   const response = await fetch("https://api.buffer.com", {
@@ -32,8 +34,13 @@ export async function bufferChannels(key: string, organizationId: string) {
 }
 
 export async function bufferPosts(key: string, organizationId: string) {
-  const data = await bufferQuery<{ posts: { edges: { node: BufferPost }[] } }>(key, `query { posts(first: 50, input: { organizationId: ${JSON.stringify(organizationId)}, sort: [{ field: dueAt, direction: asc }] }) { edges { node { id text status dueAt channelId } } } }`);
+  const data = await bufferQuery<{ posts: { edges: { node: BufferPost }[] } }>(key, `query { posts(first: 50, input: { organizationId: ${JSON.stringify(organizationId)}, sort: [{ field: dueAt, direction: asc }] }) { edges { node { id text status dueAt channelId assets { source thumbnail mimeType type } } } } }`);
   return data.posts.edges.map((edge) => edge.node);
+}
+
+export async function bufferTags(key: string, organizationId: string) {
+  const data = await bufferQuery<{ tagsV2: { edges: { node: BufferTag }[] } }>(key, `query { tagsV2(first: 100, input: { organizationId: ${JSON.stringify(organizationId)} }) { edges { node { id name color isLocked } } } }`);
+  return data.tagsV2.edges.map((edge) => edge.node);
 }
 
 export async function savedBufferConfig() {

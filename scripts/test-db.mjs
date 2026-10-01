@@ -628,6 +628,14 @@ await test("Buffer key is private and duplicate post submissions are claimed onc
   await asUser(db, OWNER, (tx) => tx.query("select finish_buffer_post($1,$2,$3,$4)", [requestId, "succeeded", "buffer-post-1", null]));
   assert.equal((await claim()).rows[0].buffer_post_id, "buffer-post-1");
 });
+await test("only Owner or Admin can upload public social media under their own folder", async () => {
+  const bucket = (await db.query("select public, file_size_limit from storage.buckets where id='social-media'")).rows[0];
+  assert.equal(bucket.public, true);
+  assert.equal(Number(bucket.file_size_limit), 25 * 1024 * 1024);
+  await asUser(db, OWNER, (tx) => tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", ["social-media", `${OWNER}/${id()}.jpg`]));
+  await assert.rejects(asUser(db, OWNER, (tx) => tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", ["social-media", `${STAFF}/${id()}.jpg`])), /row-level security/);
+  await assert.rejects(asUser(db, STAFF, (tx) => tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", ["social-media", `${STAFF}/${id()}.jpg`])), /row-level security/);
+});
 await test("cancelled orders retain invoices/payments and prohibit new receipts", async () => {
   await call("save_order", {
     ...update,
