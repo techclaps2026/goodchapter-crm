@@ -1,4 +1,10 @@
 import { z } from "zod";
+export const roleSchema = z.enum(["owner", "co_owner", "admin", "staff"]);
+export const invitationSchema = z.object({
+  email: z.email(),
+  full_name: z.string().trim().min(1).max(100),
+  role: roleSchema,
+});
 const text = z.string().trim().max(5000);
 const name = text.min(1).max(200);
 const id = z.uuid();
@@ -156,6 +162,15 @@ export const schemas = {
     notes: text,
   }),
   create_invoice: z.object({ id, due_on: date }),
+  save_invoice: z.object({
+    id,
+    title: name,
+    due_on: date,
+    tax_mode: z.enum(["None", "CGST/SGST", "IGST"]),
+    items: z.array(line).min(1).max(100),
+    terms: text,
+  }),
+  revise_invoice: z.object({ id }),
   issue_invoice: z.object({ id, due_on: date }),
   share_document: z.object({ id, enabled: z.boolean() }),
   log_payment: z.object({
@@ -179,7 +194,7 @@ export const schemas = {
   update_user: z.object({
     id,
     full_name: name,
-    role: z.enum(["owner", "staff"]),
+    role: roleSchema,
     active: z.boolean(),
   }),
 } as const;

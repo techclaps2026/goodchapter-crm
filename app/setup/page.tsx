@@ -6,7 +6,7 @@ export default function Setup() {
         <h1>A fresh chapter.</h1>
         <p>
           Connect this app to your new Supabase project to open the studio
-          workspace.
+          CRM.
         </p>
         <ol>
           <li>Apply the included database migration.</li>

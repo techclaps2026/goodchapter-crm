@@ -1,7 +1,16 @@
-export type Role = "owner" | "staff";
+export type Role = "owner" | "co_owner" | "admin" | "staff";
+export const hasOwnerAccess = (role: Role) => role !== "staff";
+export const canManageUsers = (role: Role) => role === "owner" || role === "admin";
+export const roleLabels: Record<Role, string> = {
+  owner: "Owner",
+  co_owner: "Co-owner",
+  admin: "Admin",
+  staff: "Staff",
+};
 export interface Profile {
   id: string;
   full_name: string;
+  email?: string;
   role: Role;
   active: boolean;
 }
@@ -158,6 +167,12 @@ export interface Payment {
 export interface Snapshot {
   demo: boolean;
   profile: Profile;
+  integrations: {
+    supabase: boolean;
+    resend: boolean;
+    sender: string;
+    appUrl: string;
+  };
   profiles: Profile[];
   settings: Settings;
   leads: Lead[];

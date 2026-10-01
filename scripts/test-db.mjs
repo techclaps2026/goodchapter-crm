@@ -169,7 +169,30 @@ await test("one invoice per order, including repeated creation", async () => {
   const b = await call("create_invoice", { id: order, due_on: null });
   assert.equal(a.id, b.id);
   invoice = a.id;
+  await call("save_invoice", {
+    id: invoice,
+    title: "Revised merchandise requirements",
+    due_on: "2026-12-31",
+    tax_mode: "IGST",
+    items: [{ ...line, unit_price: 700 }],
+    terms: "Updated client terms",
+  });
+  assert.equal(
+    (await db.query("select total from documents where id=$1", [invoice])).rows[0].total,
+    "59472.00",
+  );
   await call("issue_invoice", { id: invoice, due_on: "2026-12-31" });
+  await assert.rejects(
+    call("save_invoice", {
+      id: invoice,
+      title: "Unsafe rewrite",
+      due_on: null,
+      tax_mode: "None",
+      items: [line],
+      terms: "",
+    }),
+    /Only active draft/,
+  );
   await assert.rejects(
     call("issue_invoice", { id: invoice, due_on: null }),
     /Only draft/,
@@ -196,6 +219,46 @@ await test("payment retries are idempotent and concurrent-safe", async () => {
     1,
   );
 });
+await test("issued invoice revisions preserve history and revoke old sharing", async () => {
+  const original = invoice;
+  await call("share_document", { id: original, enabled: true });
+  const oldToken = (await db.query("select share_token from documents where id=$1", [original])).rows[0].share_token;
+  const key = id();
+  const first = await call("revise_invoice", { id: original }, key);
+  const retry = await call("revise_invoice", { id: original }, key);
+  assert.equal(first.id, retry.id);
+  invoice = first.id;
+  assert.equal(
+    (await db.query("select status,share_token from documents where id=$1", [original])).rows[0].status,
+    "Superseded",
+  );
+  assert.equal(
+    await asUser(db, null, async (tx) =>
+      (await tx.query("select shared_document($1::uuid) d", [oldToken])).rows[0].d,
+    ),
+    null,
+  );
+  await assert.rejects(call("share_document", { id: original, enabled: true }), /Only current/);
+  await assert.rejects(call("revise_invoice", { id: original }), /Only active issued/);
+  await call("save_invoice", {
+    id: invoice,
+    title: "Final changed requirements",
+    due_on: "2026-12-31",
+    tax_mode: "IGST",
+    items: [{ ...line, unit_price: 720 }],
+    terms: "Final client terms",
+  });
+  assert.equal(
+    (await db.query("select title,total,status from documents where id=$1", [original])).rows[0].title,
+    "Revised merchandise requirements",
+  );
+  assert.equal(
+    (await db.query("select count(*)::int n from documents where order_id=$1 and kind='invoice' and status<>'Superseded'", [order])).rows[0].n,
+    1,
+  );
+  assert.equal((await call("create_invoice", { id: order, due_on: null })).id, invoice);
+  await call("issue_invoice", { id: invoice, due_on: "2026-12-31" });
+});
 await test("owner costs are invisible and unwritable to staff", async () => {
   await call("save_cost", { order_id: order, item_index: 0, amount: 12345 });
   await asUser(db, STAFF, async (tx) =>
@@ -215,7 +278,64 @@ await test("staff cannot change business settings or user roles", async () => {
   await assert.rejects(call("save_settings", {}, id(), STAFF), /Owner access/);
   await assert.rejects(
     call("update_user", { id: OWNER, role: "staff" }, id(), STAFF),
-    /Owner access/,
+    /User management requires Owner or Admin/,
+  );
+});
+await test("admin and co-owner receive full access without changing staff rights", async () => {
+  for (const role of ["admin", "co_owner"]) {
+    const userId = id();
+    await db.query(
+      "insert into auth.users(id, email, raw_user_meta_data, invited_at) values($1, $2, $3::jsonb, now())",
+      [userId, `${role}@example.test`, JSON.stringify({ full_name: role })],
+    );
+    await call("update_user", {
+      id: userId,
+      full_name: role,
+      role,
+      active: true,
+    });
+    await asUser(db, userId, async (tx) => {
+      assert.equal((await tx.query("select is_owner() allowed")).rows[0].allowed, true);
+      assert.equal((await tx.query("select count(*)::int n from order_costs")).rows[0].n, 1);
+      await tx.query("select update_my_profile($1)", [`${role} teammate`]);
+    });
+    assert.deepEqual(
+      (await db.query("select full_name, role, email from profiles where id=$1", [userId])).rows[0],
+      { full_name: `${role} teammate`, role, email: `${role}@example.test` },
+    );
+    await db.query("update auth.users set email=$1 where id=$2", [`new-${role}@example.test`, userId]);
+    assert.equal(
+      (await db.query("select email from profiles where id=$1", [userId])).rows[0].email,
+      `new-${role}@example.test`,
+    );
+    await call("save_cost", { order_id: order, item_index: 0, amount: 12345 }, id(), userId);
+    if (role === "admin") {
+      await call("update_user", {
+        id: STAFF,
+        full_name: "Studio teammate",
+        role: "staff",
+        active: true,
+      }, id(), userId);
+    } else {
+      await assert.rejects(
+        call("update_user", {
+          id: STAFF,
+          full_name: "Not allowed",
+          role: "admin",
+          active: true,
+        }, id(), userId),
+        /User management requires Owner or Admin/,
+      );
+    }
+  }
+  await asUser(db, STAFF, async (tx) => {
+    assert.equal((await tx.query("select is_owner() allowed")).rows[0].allowed, false);
+    await tx.query("select update_my_profile($1)", ["Studio teammate"]);
+  });
+  assert.equal((await db.query("select role from profiles where id=$1", [STAFF])).rows[0].role, "staff");
+  await assert.rejects(
+    call("update_user", { id: STAFF, full_name: "Bad", role: "superadmin", active: true }),
+    /profiles_role_check/,
   );
 });
 await test("direct table writes are denied even to authenticated owner", async () => {
@@ -264,7 +384,7 @@ await test("public links expose only an allowlisted document and can be revoked"
   );
 });
 await test("anonymous callers cannot read internal data, artwork or mutate", async () => {
-  for (const fn of ["is_member()", "is_owner()", "provision_profile()"]) {
+  for (const fn of ["is_member()", "is_owner()", "can_manage_users()", "provision_profile()"]) {
     assert.equal(
       (
         await db.query(

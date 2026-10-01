@@ -10,7 +10,7 @@ export default function NotFound() {
           available.
         </p>
         <Link className="button" href="/">
-          Back to workspace
+          Back to CRM
         </Link>
       </div>
     </main>

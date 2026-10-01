@@ -18,7 +18,7 @@ set role = 'owner', active = true
 where id = 'REPLACE_WITH_OWNER_UUID'::uuid;
 ```
 
-Verify exactly one row was updated and the email/UUID match the intended owner. Other invited accounts default to staff. Uninvited signup accounts default inactive. There is no public owner-bootstrap endpoint or seeded password. The initial owner `parasnarula71@yahoo.in` was created without sending an invitation or password on 1 October 2026; they can use **Set or reset password** on the deployed login page.
+Verify exactly one row was updated and the email/UUID match the intended owner. Invitations now offer Staff, Admin, Co-owner and Owner. Owner and Admin manage users and have full access. Co-owner has business, cost and margin access but cannot manage users. Staff has operational access. Uninvited signup accounts default inactive. There is no public owner-bootstrap endpoint or seeded password. The initial owner `parasnarula71@yahoo.in` was created without sending an invitation or password on 1 October 2026; they can use **Set or reset password** on the deployed login page.
 
 CLI outline (after authenticating; use only the new project reference):
 

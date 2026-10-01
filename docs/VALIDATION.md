@@ -3,7 +3,7 @@
 ## Automated local checks
 
 - Unit tests: discounts, quantities, charges, split GST rounding, input boundaries, net receipts/overpayments, email HTML escaping, PDF pagination and same-origin protection.
-- PostgreSQL/PGlite tests: fresh schema, authoritative pricing, accepted document stability, conversion idempotency, latest-artwork approval gate, unique order invoice, payment retry keys, cancellation/refunds, public document allowlist/revocation, anonymous denial, staff cost/settings denial, direct table write denial, deactivation and uninvited signup denial.
+- PostgreSQL/PGlite tests: fresh schema, authoritative pricing, accepted document stability, conversion idempotency, latest-artwork approval gate, one current invoice per order, editable invoice drafts, immutable issued-version history, payment retry keys, cancellation/refunds, public document allowlist/revocation, anonymous denial, staff cost/settings denial, admin/co-owner access, direct table write denial, deactivation and uninvited signup denial.
 - Lint, TypeScript, production build and npm audit must pass against the final commit.
 
 ## Browser and document checks
@@ -13,7 +13,7 @@ Use fictional records only. Record exact results here before release.
 - Enquiry -> client -> mixed-item quotation -> acceptance -> order.
 - Production blocked without approval; attach a version, record approval, verify a new version invalidates that approval.
 - Vendor assignment, delivery dates, dispatch/tracking and delivered status.
-- Itemised invoice, advance + final receipt, zero balance; cancellation retains ledger.
+- Itemised invoice, draft edits, issued revision, partial + final receipt, zero balance; cancellation retains ledger.
 - Public share view and PDF contain no notes, costs, private artwork or unrelated records; revoke and verify the old URL fails.
 - Desktop and mobile navigation, modal scroll, empty states, validation and save failure recovery.
 - PDF branding, long descriptions, multi-page table headers, totals and footers.

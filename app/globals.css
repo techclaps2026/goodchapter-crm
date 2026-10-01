@@ -434,6 +434,10 @@ p {
   grid-template-columns: 1.4fr 1fr;
   gap: 24px;
 }
+.settings-section {
+  width: 100%;
+  max-width: 880px;
+}
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 330px;

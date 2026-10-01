@@ -7,14 +7,20 @@ do $$
 declare
   owner_id uuid = gen_random_uuid();
   staff_id uuid = gen_random_uuid();
+  admin_id uuid = gen_random_uuid();
+  co_owner_id uuid = gen_random_uuid();
   client_id uuid; quote_id uuid; order_id uuid; invoice_id uuid; token uuid;
   result jsonb; first_payment jsonb; retry_key uuid = gen_random_uuid();
   rejected boolean; n integer;
 begin
   insert into auth.users(id, raw_user_meta_data, invited_at)
   values (owner_id, '{"full_name":"Transactional QA owner"}', now()),
-         (staff_id, '{"full_name":"Transactional QA staff"}', now());
+         (staff_id, '{"full_name":"Transactional QA staff"}', now()),
+         (admin_id, '{"full_name":"Transactional QA admin"}', now()),
+         (co_owner_id, '{"full_name":"Transactional QA co-owner"}', now());
   update public.profiles set role='owner' where id=owner_id;
+  update public.profiles set role='admin' where id=admin_id;
+  update public.profiles set role='co_owner' where id=co_owner_id;
   perform set_config('request.jwt.claim.sub', owner_id::text, true);
   execute 'set local role authenticated';
   assert public.is_owner(), 'Owner profile could not be provisioned';
@@ -64,6 +70,18 @@ begin
   exception when insufficient_privilege then rejected=true;
   end;
   assert rejected, 'Direct role escalation permitted';
+  perform set_config('request.jwt.claim.sub',co_owner_id::text,true);
+  assert public.is_owner() and not public.can_manage_users(), 'Co-owner permissions failed';
+  assert (select count(*)=1 from public.order_costs), 'Co-owner cannot read costs';
+  rejected=false;
+  begin
+    perform public.crm_mutate('update_user',jsonb_build_object('id',staff_id,'full_name','QA staff','role','admin','active',true),gen_random_uuid());
+  exception when insufficient_privilege then rejected=true;
+  end;
+  assert rejected, 'Co-owner can manage users';
+  perform set_config('request.jwt.claim.sub',admin_id::text,true);
+  assert public.can_manage_users(), 'Admin cannot manage users';
+  perform public.crm_mutate('update_user',jsonb_build_object('id',staff_id,'full_name','QA staff','role','staff','active',true),gen_random_uuid());
   perform set_config('request.jwt.claim.sub',owner_id::text,true);
   perform public.crm_mutate('share_document',jsonb_build_object('id',invoice_id,'enabled',true),gen_random_uuid());
   select share_token into token from public.documents where id=invoice_id;

@@ -58,7 +58,7 @@ export default function LoginForm({ expiredLink }: { expiredLink: boolean }) {
               });
               if (error) throw error;
               setFeedback({
-                text: "If this address has workspace access, check your email for a sign-in link.",
+                text: "If this address has CRM access, check your email for a sign-in link.",
                 error: false,
               });
             } else {
@@ -67,7 +67,7 @@ export default function LoginForm({ expiredLink }: { expiredLink: boolean }) {
               });
               if (error) throw error;
               setFeedback({
-                text: "If this address has workspace access, check your email for a password link.",
+                text: "If this address has CRM access, check your email for a password link.",
                 error: false,
               });
             }
@@ -107,7 +107,7 @@ export default function LoginForm({ expiredLink }: { expiredLink: boolean }) {
               ? "We’ll send a secure link so you can choose a password."
               : mode === "link"
                 ? "We’ll email you a one-time sign-in link."
-                : "Sign in to your studio workspace."}
+                : "Sign in to The Good Chapter CRM."}
           </p>
         </div>
         <label>
@@ -166,7 +166,7 @@ export default function LoginForm({ expiredLink }: { expiredLink: boolean }) {
           )}
         </div>
         <p className="muted auth-invite-note">
-          Access is by invitation. Ask your workspace owner to add you.
+          Access is by invitation. Ask a CRM admin to add you.
         </p>
       </form>
     </main>

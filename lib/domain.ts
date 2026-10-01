@@ -57,12 +57,23 @@ export function priceLines(input: LineInput[], mode: TaxMode) {
 }
 export function orderMoney(s: Snapshot, id: string) {
   const o = s.orders.find((o) => o.id === id);
-  const d = s.documents.find((d) => d.id === o?.quote_id);
+  const d =
+    s.documents.find(
+      (d) =>
+        d.kind === "invoice" &&
+        d.order_id === id &&
+        d.status !== "Superseded",
+    ) ?? s.documents.find((d) => d.id === o?.quote_id);
   const total = Number(d?.total ?? 0);
   const paid = s.payments
     .filter((p) => p.order_id === id)
     .reduce((n, p) => n + Number(p.amount) * (p.kind === "Refund" ? -1 : 1), 0);
   return { total, paid, balance: Math.round((total - paid) * 100) / 100 };
+}
+export function paymentState(total: number, paid: number) {
+  if (paid <= 0) return "Unpaid";
+  if (paid + 0.005 < total) return "Partially paid";
+  return "Fully paid";
 }
 export const blankLine = (): LineInput => ({
   description: "",

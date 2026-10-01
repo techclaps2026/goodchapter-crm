@@ -28,11 +28,14 @@ export default function QuoteEditor({
   const [title, setTitle] = useState(doc?.title ?? "");
   const [client, setClient] = useState(doc?.client_id ?? clientId ?? "");
   const [lead, setLead] = useState(doc?.lead_id ?? "");
-  const [valid, setValid] = useState(doc?.valid_until ?? "");
+  const [valid, setValid] = useState(
+    doc?.kind === "invoice" ? doc.due_on || "" : doc?.valid_until || "",
+  );
   const [mode, setMode] = useState<TaxMode>(doc?.tax_mode ?? "None");
   const [terms, setTerms] = useState(doc?.terms ?? s.settings.terms);
   const [items, setItems] = useState<LineInput[]>(doc?.items ?? [blankLine()]);
   const [error, setError] = useState("");
+  const isInvoice = doc?.kind === "invoice";
   const totals = priceLines(items, mode);
   const change = (i: number, key: keyof LineInput, value: string | number) =>
     setItems(items.map((l, j) => (j === i ? { ...l, [key]: value } : l)));
@@ -42,16 +45,25 @@ export default function QuoteEditor({
         e.preventDefault();
         setError("");
         try {
-          const result = await mutate("save_quote", {
-            ...(doc ? { id: doc.id } : {}),
-            title,
-            client_id: client,
-            lead_id: lead || null,
-            valid_until: valid || null,
-            tax_mode: mode,
-            items,
-            terms,
-          });
+          const result = isInvoice
+            ? await mutate("save_invoice", {
+                id: doc.id,
+                title,
+                due_on: valid || null,
+                tax_mode: mode,
+                items,
+                terms,
+              })
+            : await mutate("save_quote", {
+                ...(doc ? { id: doc.id } : {}),
+                title,
+                client_id: client,
+                lead_id: lead || null,
+                valid_until: valid || null,
+                tax_mode: mode,
+                items,
+                terms,
+              });
           onDone(result.id);
         } catch (e) {
           setError(e instanceof Error ? e.message : "Could not save quotation");
@@ -60,7 +72,7 @@ export default function QuoteEditor({
     >
       <div className="field-grid">
         <label className="wide">
-          Project / quotation title
+          {isInvoice ? "Invoice title" : "Project / quotation title"}
           <input
             required
             value={title}
@@ -68,41 +80,53 @@ export default function QuoteEditor({
             placeholder="e.g. New-joiner welcome kits"
           />
         </label>
+        {isInvoice ? (
+          <label>
+            Client
+            <input
+              value={doc.customer.organisation || doc.customer.name}
+              readOnly
+            />
+          </label>
+        ) : (
+          <>
+            <label>
+              Client
+              <select
+                required
+                value={client}
+                onChange={(e) => {
+                  setClient(e.target.value);
+                  setLead("");
+                }}
+              >
+                <option value="">Choose a client</option>
+                {s.clients
+                  .filter((c) => !c.archived)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.organisation || c.name} · {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Linked enquiry
+              <select value={lead} onChange={(e) => setLead(e.target.value)}>
+                <option value="">No linked enquiry</option>
+                {s.leads
+                  .filter((l) => l.client_id === client)
+                  .map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} · {l.brief}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </>
+        )}
         <label>
-          Client
-          <select
-            required
-            value={client}
-            onChange={(e) => {
-              setClient(e.target.value);
-              setLead("");
-            }}
-          >
-            <option value="">Choose a client</option>
-            {s.clients
-              .filter((c) => !c.archived)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.organisation || c.name} · {c.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          Linked enquiry
-          <select value={lead} onChange={(e) => setLead(e.target.value)}>
-            <option value="">No linked enquiry</option>
-            {s.leads
-              .filter((l) => l.client_id === client)
-              .map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} · {l.brief}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          Valid until
+          {isInvoice ? "Payment due date" : "Valid until"}
           <input
             type="date"
             value={valid}
@@ -246,7 +270,7 @@ export default function QuoteEditor({
       </label>
       <p style={{ fontSize: 11, marginTop: 12 }}>
         Set tax rates supplied by your business. Catalogue changes won’t alter
-        saved quotation items.
+        saved {isInvoice ? "invoice" : "quotation"} items.
       </p>
       {error && (
         <p role="alert" className="form-error">
@@ -255,7 +279,11 @@ export default function QuoteEditor({
       )}
       <div className="form-footer">
         <button disabled={busy} className="button primary">
-          {busy ? "Saving…" : "Save quotation"}
+          {busy
+            ? "Saving…"
+            : isInvoice
+              ? "Save invoice draft"
+              : "Save quotation"}
         </button>
       </div>
     </form>

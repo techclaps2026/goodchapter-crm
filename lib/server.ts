@@ -43,7 +43,7 @@ export async function session() {
     .eq("id", user.id)
     .single();
   if (error || !data?.active) throw new Error("UNAUTHENTICATED");
-  return data as Profile;
+  return { ...data, email: user.email } as Profile;
 }
 export async function snapshot(): Promise<Snapshot> {
   const user = await session();
@@ -87,8 +87,14 @@ export async function snapshot(): Promise<Snapshot> {
   return {
     ...rest,
     settings: workspace_settings[0],
-    profile: (rows.profiles as Profile[]).find((p) => p.id === user.id),
+    profile: user,
     demo: demoEnabled(),
+    integrations: {
+      supabase: isSupabaseConfigured,
+      resend: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
+      sender: process.env.RESEND_FROM_EMAIL || "",
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || "",
+    },
   } as Snapshot;
 }
 export async function mutate(action: string, payload: unknown, key: string) {

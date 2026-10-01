@@ -7,7 +7,7 @@ export async function createDatabase() {
   // Match PostgREST's date-only strings, including native HTML date inputs.
   const db = new PGlite({ parsers: { [types.DATE]: (value) => value } });
   await db.exec(`create role anon; create role authenticated; create schema auth; create schema storage;
- create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',invited_at timestamptz);
+ create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}',invited_at timestamptz);
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth,public,storage to anon,authenticated;
  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);

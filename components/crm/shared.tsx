@@ -13,6 +13,7 @@ export function Badge({ children }: { children: React.ReactNode }) {
     "Accepted",
     "Delivered",
     "Paid",
+    "Fully paid",
     "Won",
     "Approved",
     "Issued",
@@ -34,6 +35,7 @@ export function Badge({ children }: { children: React.ReactNode }) {
             "Partial",
             "High",
             "Production",
+            "Partially paid",
           ].includes(s)
         ? "warn"
         : "";

@@ -95,7 +95,7 @@ export default function PasswordForm() {
           {busy ? "Saving…" : "Save password →"}
         </button>
         <div className="auth-options">
-          <Link href="/">Back to workspace</Link>
+          <Link href="/account">Back to my account</Link>
         </div>
       </form>
     </main>

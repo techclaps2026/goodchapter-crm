@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { priceLines, blankLine, orderMoney } from "../lib/domain";
-import { validateMutation } from "../lib/validation";
-import type { Snapshot } from "../lib/types";
+import { priceLines, blankLine, orderMoney, paymentState } from "../lib/domain";
+import { validateMutation, invitationSchema } from "../lib/validation";
+import { canManageUsers, hasOwnerAccess, type Snapshot } from "../lib/types";
 describe("quotation pricing", () => {
   it("prices quantities, discounts, charges and IGST separately", () => {
     const r = priceLines(
@@ -125,6 +125,30 @@ describe("input boundaries", () => {
       }),
     ).toThrow());
 });
+it("accepts only defined invitation roles", () => {
+  for (const role of ["staff", "admin", "co_owner", "owner"])
+    expect(
+      invitationSchema.parse({
+        email: "teammate@example.test",
+        full_name: "Teammate",
+        role,
+      }).role,
+    ).toBe(role);
+  expect(() =>
+    invitationSchema.parse({
+      email: "teammate@example.test",
+      full_name: "Teammate",
+      role: "superuser",
+    }),
+  ).toThrow();
+});
+it("reserves user management for Owner and Admin", () => {
+  expect(canManageUsers("owner")).toBe(true);
+  expect(canManageUsers("admin")).toBe(true);
+  expect(canManageUsers("co_owner")).toBe(false);
+  expect(canManageUsers("staff")).toBe(false);
+  expect(hasOwnerAccess("co_owner")).toBe(true);
+});
 it("derives balances from ledger entries, including refunds and overpayments", () => {
   const s = {
     orders: [{ id: "o", quote_id: "q" }],
@@ -135,6 +159,22 @@ it("derives balances from ledger entries, including refunds and overpayments", (
     ],
   } as unknown as Snapshot;
   expect(orderMoney(s, "o")).toEqual({ total: 100, paid: 110, balance: -10 });
+});
+it("derives invoice payment state from receipts and the current invoice", () => {
+  const s = {
+    orders: [{ id: "o", quote_id: "q" }],
+    documents: [
+      { id: "q", total: 100 },
+      { id: "old", kind: "invoice", order_id: "o", status: "Superseded", total: 120 },
+      { id: "current", kind: "invoice", order_id: "o", status: "Issued", total: 150 },
+    ],
+    payments: [{ order_id: "o", amount: 60, kind: "Receipt" }],
+  } as unknown as Snapshot;
+  expect(orderMoney(s, "o")).toEqual({ total: 150, paid: 60, balance: 90 });
+  expect(paymentState(150, 0)).toBe("Unpaid");
+  expect(paymentState(150, 60)).toBe("Partially paid");
+  expect(paymentState(150, 150)).toBe("Fully paid");
+  expect(paymentState(150, 170)).toBe("Fully paid");
 });
 
 import { documentEmail } from "../lib/document-email";

@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { Upload, FileText, ExternalLink } from "lucide-react";
 import type { Snapshot, Order } from "@/lib/types";
-import { ORDER_STAGES } from "@/lib/types";
+import { ORDER_STAGES, hasOwnerAccess } from "@/lib/types";
 import { money, orderMoney, dateLabel } from "@/lib/domain";
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
@@ -33,7 +33,10 @@ export default function OrderDetail({
   const uploadKey = useRef(crypto.randomUUID());
   const q = s.documents.find((d) => d.id === o.quote_id)!;
   const invoice = s.documents.find(
-    (d) => d.order_id === o.id && d.kind === "invoice",
+    (d) =>
+      d.order_id === o.id &&
+      d.kind === "invoice" &&
+      d.status !== "Superseded",
   );
   const m = orderMoney(s, o.id);
   const versions = s.artwork
@@ -141,9 +144,9 @@ export default function OrderDetail({
                         ))}
                     </select>
                   </label>
-                  {s.profile.role === "owner" && (
+                  {hasOwnerAccess(s.profile.role) && (
                     <label>
-                      Total vendor cost · owner only
+                      Total vendor cost · admin access
                       <input
                         type="number"
                         step=".01"

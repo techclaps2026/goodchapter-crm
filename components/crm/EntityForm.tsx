@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { Snapshot } from "@/lib/types";
-import { CATEGORIES, LEAD_STAGES } from "@/lib/types";
+import { CATEGORIES, LEAD_STAGES, hasOwnerAccess } from "@/lib/types";
 import type { Action } from "@/lib/validation";
 import type { Mutate } from "./use-crm";
 import { today } from "@/lib/domain";
@@ -225,7 +225,7 @@ export default function EntityForm({
         key: "kind",
         label: "Entry type",
         options: options(
-          s.profile.role === "owner" ? ["Receipt", "Refund"] : ["Receipt"],
+          hasOwnerAccess(s.profile.role) ? ["Receipt", "Refund"] : ["Receipt"],
         ),
       },
       {

@@ -16,6 +16,7 @@ import {
   Wallet,
   BarChart3,
   Settings as SettingsIcon,
+  UserCircle,
   Plus,
   Search,
   ArrowUpRight,
@@ -39,13 +40,27 @@ import QuoteEditor from "./QuoteEditor";
 import DocumentView from "./DocumentView";
 import OrderDetail from "./OrderDetail";
 import Settings from "./Settings";
+import AccountSettings from "./AccountSettings";
+import InvoiceGenerator from "./InvoiceGenerator";
 import SendEmail from "./SendEmail";
-import { money, dateLabel, today, orderMoney } from "@/lib/domain";
+import {
+  money,
+  dateLabel,
+  today,
+  orderMoney,
+  paymentState,
+} from "@/lib/domain";
 import type { CommercialDocument, Snapshot, Followup } from "@/lib/types";
-import { LEAD_STAGES, ORDER_STAGES } from "@/lib/types";
+import {
+  canManageUsers,
+  hasOwnerAccess,
+  roleLabels,
+  LEAD_STAGES,
+  ORDER_STAGES,
+} from "@/lib/types";
 import type { Action } from "@/lib/validation";
 const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
-  { group: "WORKSPACE", items: [["dashboard", "Dashboard", Home]] },
+  { group: "CRM", items: [["dashboard", "Dashboard", Home]] },
   {
     group: "SALES",
     items: [
@@ -71,7 +86,14 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
       ["reports", "Reports", BarChart3],
     ],
   },
-  { group: "MANAGE", items: [["settings", "Settings", SettingsIcon]] },
+  {
+    group: "MANAGE",
+    items: [
+      ["settings", "Settings", SettingsIcon],
+      ["users", "User management", Users],
+      ["account", "User settings", UserCircle],
+    ],
+  },
 ];
 const titles = Object.fromEntries(
   NAV.flatMap((g) => g.items.map(([id, title]) => [id, title])),
@@ -88,7 +110,9 @@ const descriptions: Record<string, string> = {
   invoices: "Clear documents. Confident collections.",
   payments: "Every advance, receipt and balance in one place.",
   reports: "A clear view of your studio’s business.",
-  settings: "Make this workspace your own.",
+  settings: "Business details, documents and connected services.",
+  users: "Invite teammates and manage their access.",
+  account: "Your profile and sign-in settings.",
 };
 type FormState =
   | {
@@ -96,6 +120,7 @@ type FormState =
       initial?: Record<string, string | number | boolean | null>;
     }
   | { kind: "quote"; doc?: CommercialDocument; clientId?: string }
+  | { kind: "invoice"; doc: CommercialDocument }
   | null;
 function table(headers: string[], rows: React.ReactNode[][], empty: string) {
   return (
@@ -146,6 +171,7 @@ export default function CRM({
   const [pdfBusy, setPdfBusy] = useState(false);
   const [dueOn, setDueOn] = useState("");
   const [emailOpen, setEmailOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
   const run = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -164,7 +190,7 @@ export default function CRM({
   if (error || !s)
     return (
       <div className="error-screen">
-        <h1>Couldn’t load the workspace.</h1>
+        <h1>Couldn’t load the CRM.</h1>
         <p style={{ margin: "18px 0" }}>{error?.message}</p>
         <button className="button" onClick={() => refresh()}>
           Try again
@@ -174,7 +200,7 @@ export default function CRM({
         </Link>
       </div>
     );
-  const owner = s.profile.role === "owner";
+  const owner = hasOwnerAccess(s.profile.role);
   const q = search.toLowerCase();
   const matches = (x: unknown) => JSON.stringify(x).toLowerCase().includes(q);
   const link = (
@@ -285,6 +311,26 @@ export default function CRM({
       clientName(d.client_id),
       <Badge key="status">{d.status}</Badge>,
       money(d.total),
+      ...(d.kind === "invoice"
+        ? [
+            d.status === "Superseded" ? (
+              <Badge key="payment">Revised</Badge>
+            ) : (
+              <span key="payment">
+                <Badge>
+                  {paymentState(
+                    Number(d.total),
+                    orderMoney(s, d.order_id!).paid,
+                  )}
+                </Badge>
+                <small>
+                  Balance{" "}
+                  {money(Math.max(0, orderMoney(s, d.order_id!).balance))}
+                </small>
+              </span>
+            ),
+          ]
+        : []),
       dateLabel(d.kind === "quote" ? d.valid_until : d.due_on),
       <Link
         key="open"
@@ -298,6 +344,7 @@ export default function CRM({
     const kind = form?.kind;
     setForm(null);
     if (kind === "quote") router.push("/quotations/" + id);
+    else if (kind === "invoice") router.push("/invoices/" + id);
     else if (kind === "client") router.push("/clients/" + id);
   };
   const actions = (
@@ -319,6 +366,11 @@ export default function CRM({
               : `New ${section === "quotations" ? "quotation" : { leads: "lead", clients: "client", followups: "follow-up", products: "product", vendors: "vendor" }[section]}`}
           </button>
         )}
+      {section === "invoices" && !recordId && (
+        <button className="button primary" onClick={() => setInvoiceOpen(true)}>
+          <Plus size={15} /> Generate invoice
+        </button>
+      )}
       {section === "dashboard" && (
         <>
           <button className="button" onClick={() => setForm({ kind: "quote" })}>
@@ -358,7 +410,7 @@ export default function CRM({
             ))}
           </select>
         )}
-        <span className="eyebrow">STUDIO WORKSPACE</span>
+        <span className="eyebrow">THE GOOD CHAPTER CRM</span>
       </div>
     </div>
   );
@@ -377,13 +429,19 @@ export default function CRM({
   else if (doc) {
     const accepted = doc.status === "Accepted";
     const orderForQuote = s.orders.find((o) => o.quote_id === doc.id);
-    const ledger = doc.order_id ? orderMoney(s, doc.order_id) : null;
+    const ledger =
+      doc.order_id && doc.status !== "Superseded"
+        ? orderMoney(s, doc.order_id)
+        : null;
     body = (
       <div className="stack">
         <div className="panel">
           <div className="row between">
             <div className="row">
               <Badge>{doc.status}</Badge>
+              {doc.kind === "invoice" && ledger && (
+                <Badge>{paymentState(Number(doc.total), ledger.paid)}</Badge>
+              )}
               {ledger && (
                 <span>
                   Received {money(ledger.paid)} · Balance{" "}
@@ -412,6 +470,30 @@ export default function CRM({
                   }
                 >
                   Create revision
+                </button>
+              )}
+              {doc.kind === "invoice" && doc.status === "Draft" && (
+                <button
+                  className="button"
+                  onClick={() => setForm({ kind: "invoice", doc })}
+                >
+                  Edit invoice draft
+                </button>
+              )}
+              {doc.kind === "invoice" && doc.status === "Issued" && (
+                <button
+                  className="button"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      const result = await mutate("revise_invoice", {
+                        id: doc.id,
+                      });
+                      router.push("/invoices/" + result.id);
+                    })
+                  }
+                >
+                  Revise invoice
                 </button>
               )}
               <button
@@ -510,9 +592,26 @@ export default function CRM({
                 </>
               )}
               {doc.kind === "invoice" && doc.order_id && (
-                <Link className="text-link" href={"/orders/" + doc.order_id}>
-                  Open order ↗
-                </Link>
+                <>
+                  <Link className="text-link" href={"/orders/" + doc.order_id}>
+                    Open order ↗
+                  </Link>
+                  {doc.status !== "Superseded" &&
+                    s.orders.find((o) => o.id === doc.order_id)?.status !==
+                      "Cancelled" && (
+                      <button
+                        className="button"
+                        onClick={() =>
+                          setForm({
+                            kind: "payment",
+                            initial: { order_id: doc.order_id },
+                          })
+                        }
+                      >
+                        Record payment
+                      </button>
+                    )}
+                </>
               )}
             </div>
             <div className="row">
@@ -568,7 +667,7 @@ export default function CRM({
                     Revoke link
                   </button>
                 </>
-              ) : (
+              ) : doc.status !== "Superseded" ? (
                 <button
                   className="button small"
                   disabled={busy || doc.status === "Draft"}
@@ -580,7 +679,7 @@ export default function CRM({
                 >
                   Enable share link
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
           <p style={{ fontSize: 11, marginTop: 15 }}>
@@ -814,7 +913,7 @@ export default function CRM({
         {toolbar(
           kind === "quote"
             ? ["Draft", "Sent", "Accepted", "Rejected"]
-            : ["Draft", "Issued"],
+            : ["Draft", "Issued", "Superseded"],
         )}
         {kind === "invoice" && (
           <p style={{ marginBottom: 18, fontSize: 12 }}>
@@ -828,6 +927,7 @@ export default function CRM({
             "Client",
             "Status",
             "Total",
+            ...(kind === "invoice" ? ["Payment"] : []),
             kind === "quote" ? "Valid until" : "Due date",
             "",
           ],
@@ -835,9 +935,15 @@ export default function CRM({
             s.documents
               .filter((d) => d.kind === kind)
               .filter(matches)
-              .filter((d) => filter === "All" || d.status === filter),
+              .filter((d) =>
+                filter === "All"
+                  ? d.status !== "Superseded"
+                  : d.status === filter,
+              ),
           ),
-          "No " + titles[section].toLowerCase() + " yet",
+          kind === "invoice"
+            ? "No invoices yet. Use Generate invoice to choose an order."
+            : "No quotations yet",
         )}
       </>
     );
@@ -1055,7 +1161,18 @@ export default function CRM({
       </>
     );
   else if (section === "reports") body = <Reports s={s} />;
-  else body = <Settings s={s} mutate={mutate} busy={busy} />;
+  else if (section === "account")
+    body = <AccountSettings s={s} refresh={refresh} />;
+  else
+    body = (
+      <Settings
+        s={s}
+        mutate={mutate}
+        busy={busy}
+        refresh={refresh}
+        mode={section === "users" ? "users" : "business"}
+      />
+    );
   return (
     <div className="app">
       {navOpen && (
@@ -1068,14 +1185,18 @@ export default function CRM({
       <aside className={"sidebar " + (navOpen ? "open" : "")}>
         <Link href="/" className="brand" onClick={() => setNavOpen(false)}>
           <img src="/logo.svg" alt="The Good Chapter" />
-          <small>THE STUDIO WORKSPACE</small>
+          <small>MERCHANDISE CRM</small>
         </Link>
         <nav>
           {NAV.map((g) => (
             <div className="nav-group" key={g.group}>
               <p>{g.group}</p>
               {g.items
-                .filter(([id]) => id !== "settings" || owner)
+                .filter(
+                  ([id]) =>
+                    (id !== "settings" || owner) &&
+                    (id !== "users" || canManageUsers(s.profile.role)),
+                )
                 .map(([id, title, Icon]) => (
                   <Link
                     key={id}
@@ -1105,7 +1226,7 @@ export default function CRM({
             <div>
               <div style={{ fontSize: 12 }}>{s.profile.full_name}</div>
               <div style={{ fontSize: 10, color: "#aaa295" }}>
-                {owner ? "Workspace owner" : "Studio team"}
+                {roleLabels[s.profile.role]}
               </div>
             </div>
             {!s.demo && (
@@ -1125,11 +1246,9 @@ export default function CRM({
               </button>
             )}
           </div>
-          {!s.demo && (
-            <Link href="/account/password" className="sidebar-account-link">
-              Set or change password
-            </Link>
-          )}
+          <Link href="/account" className="sidebar-account-link">
+            User settings →
+          </Link>
         </div>
       </aside>
       <div className="workspace">
@@ -1210,6 +1329,19 @@ export default function CRM({
           />
         </Modal>
       )}
+      {invoiceOpen && (
+        <Modal title="Generate invoice" onClose={() => setInvoiceOpen(false)}>
+          <InvoiceGenerator
+            s={s}
+            mutate={mutate}
+            busy={busy}
+            onDone={(id) => {
+              setInvoiceOpen(false);
+              router.push("/invoices/" + id);
+            }}
+          />
+        </Modal>
+      )}
       {form && (
         <Modal
           title={
@@ -1217,18 +1349,20 @@ export default function CRM({
               ? form.doc
                 ? "Edit quotation"
                 : "New quotation"
-              : (form.initial?.id ? "Edit " : "New ") + form.kind
+              : form.kind === "invoice"
+                ? "Edit invoice draft"
+                : (form.initial?.id ? "Edit " : "New ") + form.kind
           }
           onClose={() => {
             if (!busy) setForm(null);
           }}
-          wide={form.kind === "quote"}
+          wide={form.kind === "quote" || form.kind === "invoice"}
         >
-          {form.kind === "quote" ? (
+          {form.kind === "quote" || form.kind === "invoice" ? (
             <QuoteEditor
               s={s}
               doc={form.doc}
-              clientId={form.clientId}
+              clientId={form.kind === "quote" ? form.clientId : undefined}
               mutate={mutate}
               busy={busy}
               onDone={formDone}
@@ -1445,9 +1579,15 @@ function Reports({ s }: { s: Snapshot }) {
       .filter((c) => c.order_id === o.id)
       .reduce((n, c) => n + Number(c.amount), 0),
     priced: s.order_costs.filter((c) => c.order_id === o.id).length,
-    quote: s.documents.find((d) => d.id === o.quote_id)!,
+    pricedDocument:
+      s.documents.find(
+        (d) =>
+          d.kind === "invoice" &&
+          d.order_id === o.id &&
+          d.status !== "Superseded",
+      ) ?? s.documents.find((d) => d.id === o.quote_id)!,
   }));
-  const owner = s.profile.role === "owner";
+  const owner = hasOwnerAccess(s.profile.role);
   return (
     <>
       <div className="stats">
@@ -1480,7 +1620,7 @@ function Reports({ s }: { s: Snapshot }) {
       </div>
       <div className="section-title section">
         <h2>Order performance</h2>
-        <span className="eyebrow">{owner ? "OWNER VIEW" : "STUDIO VIEW"}</span>
+        <span className="eyebrow">{owner ? "ADMIN VIEW" : "TEAM VIEW"}</span>
       </div>
       {table(
         [
@@ -1503,8 +1643,8 @@ function Reports({ s }: { s: Snapshot }) {
           ...(owner
             ? [
                 money(r.cost),
-                r.priced === r.quote.items.length
-                  ? money(Number(r.quote.subtotal) - r.cost)
+                r.priced === r.pricedDocument.items.length
+                  ? money(Number(r.pricedDocument.subtotal) - r.cost)
                   : "Costs incomplete",
               ]
             : []),
