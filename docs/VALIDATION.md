@@ -16,6 +16,7 @@ Use fictional records only. Record exact results here before release.
 - Itemised invoice, draft edits, issued revision, partial + final receipt, zero balance; cancellation retains ledger.
 - Public share view and PDF contain no notes, costs, private artwork or unrelated records; revoke and verify the old URL fails.
 - Desktop and mobile navigation, modal scroll, empty states, validation and save failure recovery.
+- User Management: align names, roles and actions on desktop/mobile; confirm deletion removes CRM access without erasing linked history, and restoration remains inactive until reactivation.
 - PDF branding, long descriptions, multi-page table headers, totals and footers.
 
 ## Required live staging checks (not replaced by local tests)

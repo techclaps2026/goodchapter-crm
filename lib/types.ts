@@ -1,6 +1,7 @@
 export type Role = "owner" | "co_owner" | "admin" | "staff";
 export const hasOwnerAccess = (role: Role) => role !== "staff";
-export const canManageUsers = (role: Role) => role === "owner" || role === "admin";
+export const canManageUsers = (role: Role) =>
+  role === "owner" || role === "admin";
 export const roleLabels: Record<Role, string> = {
   owner: "Owner",
   co_owner: "Co-owner",
@@ -13,6 +14,7 @@ export interface Profile {
   email?: string;
   role: Role;
   active: boolean;
+  deleted_at?: string | null;
 }
 export interface Settings {
   company_name: string;

@@ -32,6 +32,8 @@ Quotes/invoices use INR. Reporting dates use Asia/Kolkata. Taxes start unset; th
 
 All active staff share operational records and customer-facing finance. Owner and Admin manage users; Co-owner has business, cost and margin access without user management. Staff cannot see vendor costs or margins. Database RLS protects reads; direct table writes are denied and writes use a role-checked transaction. Uninvited accounts have no access. Service-role credentials are used only by the Owner/Admin invitation endpoint.
 
+Deleting a teammate from User Management immediately removes their CRM access and moves them to Deleted users. Linked orders, assignments, approvals and financial/audit history remain intact. Owner/Admin can restore the profile; it stays inactive until explicitly reactivated.
+
 Accepted quotations are immutable; revisions create new drafts. Invoices start from the accepted quotation. Drafts are editable; revising an issued invoice retains its historical version, revokes its old share link and creates one current draft for that order. Payments are immutable ledger entries; Owner/Admin/Co-owner refunds correct receipts. Cancellation retains documents and ledger history. Public links expose only the intended customer document, are revocable, and never include artwork or internal cost tables.
 
 PDFs are downloaded on demand. WhatsApp/email shortcuts open a draft without changing status. The separate **Send with Resend** action previews the recipient and sends a document link only after staff submit it. Resend acceptance is not a delivery guarantee.

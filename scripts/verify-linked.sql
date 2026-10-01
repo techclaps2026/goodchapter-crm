@@ -82,6 +82,11 @@ begin
   perform set_config('request.jwt.claim.sub',admin_id::text,true);
   assert public.can_manage_users(), 'Admin cannot manage users';
   perform public.crm_mutate('update_user',jsonb_build_object('id',staff_id,'full_name','QA staff','role','staff','active',true),gen_random_uuid());
+  perform public.set_team_user_removed(staff_id,true);
+  assert (select not active and deleted_at is not null from public.profiles where id=staff_id), 'User removal did not revoke access';
+  assert (select count(*)=1 from public.profiles where id=staff_id), 'User removal erased audit identity';
+  perform public.set_team_user_removed(staff_id,false);
+  assert (select not active and deleted_at is null from public.profiles where id=staff_id), 'Restored user was activated without review';
   perform set_config('request.jwt.claim.sub',owner_id::text,true);
   perform public.crm_mutate('share_document',jsonb_build_object('id',invoice_id,'enabled',true),gen_random_uuid());
   select share_token into token from public.documents where id=invoice_id;
@@ -104,4 +109,4 @@ begin
   execute 'reset role';
 end $$;
 rollback;
-select 'PASS: live role, pricing, immutability, approval gate, idempotency, settlement and sharing checks; all test rows rolled back' as verification;
+select 'PASS: live role, removal, pricing, immutability, approval gate, idempotency, settlement and sharing checks; all test rows rolled back' as verification;

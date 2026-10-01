@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -13,7 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={client}>
-      {children}
+      <ConfirmProvider>{children}</ConfirmProvider>
       <Toaster position="bottom-right" richColors />
     </QueryClientProvider>
   );

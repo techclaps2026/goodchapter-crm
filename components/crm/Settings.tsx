@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 export default function Settings({
   s,
   mutate,
@@ -26,6 +27,8 @@ export default function Settings({
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [changingUser, setChangingUser] = useState<string | null>(null);
+  const confirm = useConfirm();
   if (mode === "users" && !canManageUsers(s.profile.role))
     return (
       <div className="panel">
@@ -46,6 +49,21 @@ export default function Settings({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save");
     }
+  };
+  const changeUserAccess = async (id: string, removed: boolean) => {
+    setChangingUser(id);
+    await run(async () => {
+      const response = await fetch("/api/team/access", {
+        method: removed ? "DELETE" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not update user");
+      await refresh();
+    });
+    setChangingUser(null);
   };
   return (
     <div className="settings-section">
@@ -205,69 +223,108 @@ export default function Settings({
               Staff share CRM and order work. Owner and Admin manage users.
               Co-owner has business and finance access but cannot manage users.
             </p>
-            {s.profiles.map((p) => (
-              <div
-                key={p.id}
-                style={{
-                  borderTop: "1px solid var(--border)",
-                  padding: "16px 0",
-                }}
-              >
-                <div className="row between">
-                  <div>
-                    <strong>{p.full_name || "Team member"}</strong>
-                    {p.email && (
-                      <p style={{ fontSize: 12, marginTop: 4 }}>{p.email}</p>
-                    )}
+            {s.profiles
+              .filter((p) => !p.deleted_at)
+              .map((p) => (
+                <div key={p.id} className="team-user-row">
+                  <div className="team-user-details">
+                    <div className="team-user-name">
+                      <strong>{p.full_name || "Team member"}</strong>
+                      <Badge>
+                        {p.active ? roleLabels[p.role] : "Inactive"}
+                      </Badge>
+                    </div>
+                    {p.email && <p>{p.email}</p>}
                   </div>
-                  <Badge>{p.active ? roleLabels[p.role] : "Inactive"}</Badge>
-                </div>
-                {p.id !== s.profile.id && (
-                  <div className="row" style={{ marginTop: 10 }}>
-                    <label>
-                      Access level
-                      <select
-                        aria-label={`Role for ${p.full_name || p.email}`}
-                        disabled={busy}
-                        style={{ width: 150 }}
-                        value={p.role}
-                        onChange={(e) =>
+                  {p.id !== s.profile.id && (
+                    <div className="team-user-actions">
+                      <label className="team-role-field">
+                        Access level
+                        <select
+                          aria-label={`Role for ${p.full_name || p.email}`}
+                          disabled={busy || changingUser !== null}
+                          value={p.role}
+                          onChange={(e) =>
+                            run(() =>
+                              mutate("update_user", {
+                                id: p.id,
+                                full_name: p.full_name,
+                                role: e.target.value,
+                                active: p.active,
+                              }),
+                            )
+                          }
+                        >
+                          <option value="staff">Staff</option>
+                          <option value="co_owner">Co-owner</option>
+                          <option value="admin">Admin</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                      </label>
+                      <button
+                        className="button small"
+                        disabled={busy || changingUser !== null}
+                        onClick={() =>
                           run(() =>
                             mutate("update_user", {
                               id: p.id,
                               full_name: p.full_name,
-                              role: e.target.value,
-                              active: p.active,
+                              role: p.role,
+                              active: !p.active,
                             }),
                           )
                         }
                       >
-                        <option value="staff">Staff</option>
-                        <option value="co_owner">Co-owner</option>
-                        <option value="admin">Admin</option>
-                        <option value="owner">Owner</option>
-                      </select>
-                    </label>
-                    <button
-                      className="button small"
-                      disabled={busy}
-                      onClick={() =>
-                        run(() =>
-                          mutate("update_user", {
-                            id: p.id,
-                            full_name: p.full_name,
-                            role: p.role,
-                            active: !p.active,
-                          }),
-                        )
-                      }
-                    >
-                      {p.active ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+                        {p.active ? "Deactivate" : "Reactivate"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button small danger"
+                        disabled={busy || changingUser !== null || s.demo}
+                        onClick={async () => {
+                          const agreed = await confirm({
+                            title: `Delete ${p.full_name || p.email || "this user"}?`,
+                            description:
+                              "This removes their CRM access and moves them out of the team list. Existing orders, payments and audit history stay linked. An Owner or Admin can restore the account later.",
+                            confirmLabel: "Delete user",
+                            destructive: true,
+                          });
+                          if (agreed) await changeUserAccess(p.id, true);
+                        }}
+                      >
+                        Delete user
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            {s.profiles.some((p) => p.deleted_at) && (
+              <details className="team-removed">
+                <summary>
+                  Deleted users ({s.profiles.filter((p) => p.deleted_at).length}
+                  )
+                </summary>
+                <p>Restored users remain inactive until you reactivate them.</p>
+                {s.profiles
+                  .filter((p) => p.deleted_at)
+                  .map((p) => (
+                    <div className="team-user-row" key={p.id}>
+                      <div className="team-user-details">
+                        <strong>{p.full_name || "Team member"}</strong>
+                        {p.email && <p>{p.email}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        className="button small"
+                        disabled={busy || changingUser !== null || s.demo}
+                        onClick={() => changeUserAccess(p.id, false)}
+                      >
+                        Restore user
+                      </button>
+                    </div>
+                  ))}
+              </details>
+            )}
           </section>
           <form
             className="panel stack"
