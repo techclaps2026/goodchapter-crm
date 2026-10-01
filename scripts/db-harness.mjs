@@ -1,10 +1,11 @@
-import { PGlite } from "@electric-sql/pglite";
-import { readFile } from "node:fs/promises";
+import { PGlite, types } from "@electric-sql/pglite";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 export const OWNER = "00000000-0000-4000-8000-000000000001";
 export const STAFF = "00000000-0000-4000-8000-000000000002";
 export async function createDatabase() {
-  const db = new PGlite();
+  // Match PostgREST's date-only strings, including native HTML date inputs.
+  const db = new PGlite({ parsers: { [types.DATE]: (value) => value } });
   await db.exec(`create role anon; create role authenticated; create schema auth; create schema storage;
  create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',invited_at timestamptz);
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -13,15 +14,15 @@ export async function createDatabase() {
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;
  grant select,insert on storage.objects to authenticated;
  create function storage.foldername(name text) returns text[] language sql immutable as $$select string_to_array(name,'/')$$;`);
-  let migration = await readFile(
-    resolve(
-      process.cwd(),
-      "supabase/migrations/20260929180000_goodchapter.sql",
-    ),
-    "utf8",
-  );
-  migration = migration.replace("create extension if not exists pgcrypto;", "");
-  await db.exec(migration);
+  const migrations = resolve(process.cwd(), "supabase/migrations");
+  for (const name of (await readdir(migrations))
+    .filter((n) => n.endsWith(".sql"))
+    .sort()) {
+    const migration = (
+      await readFile(resolve(migrations, name), "utf8")
+    ).replace("create extension if not exists pgcrypto;", "");
+    await db.exec(migration);
+  }
   await db.exec(
     `insert into auth.users(id,raw_user_meta_data,invited_at) values('${OWNER}','{"full_name":"Studio owner"}',now()),('${STAFF}','{"full_name":"Aanya · Studio team"}',now());update profiles set role='owner' where id='${OWNER}';`,
   );

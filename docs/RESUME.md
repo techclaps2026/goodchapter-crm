@@ -1,32 +1,61 @@
-# Current checkpoint — 30 September 2026
+# Current checkpoint — 1 October 2026
 
-## Working application
+## Application and source
 
-The independent CRM is implemented with the modules and boundaries described in README. Both reference repositories were refreshed at initial implementation; their local changes were preserved. Source provenance is in SOURCE.md.
+The independent CRM is in the private repository
+https://github.com/techclaps2026/goodchapter-crm. Initial GitHub CI passed.
+Both Tripclaps and BML references were refreshed; their local changes were
+preserved. Provenance is in [SOURCE.md](../SOURCE.md).
 
-## Verified locally
+The first release covers leads, clients, follow-ups, products, vendors,
+quotations, orders, artwork approvals, invoices, payments and reports. Local
+demo records are fictional and disappear on server restart. They never touch
+the live Supabase project.
 
-- Final production build, lint and TypeScript pass on Node 24.
-- 13 unit/PDF/origin tests and 21 fresh PostgreSQL/PGlite scenarios pass.
-- npm audit reports zero vulnerabilities after compatible dependency updates.
-- Browser: enquiry saved, client conversion, mixed-item quotation with discounts and split GST (INR 55,814), acceptance, linked order, production approval gate, private artwork upload and recorded approval verified.
-- PDF: actual branded quotation downloaded and inspected; six-page invoice inspected for table continuation, totals and footers. Internal fields excluded by projection and tests.
-- Mobile, complete browser settlement and live Supabase integration verification remain to finish.
+## Verification
 
-## Account state
+- Node 24: lint, production build, 13 unit/PDF tests, 21 database scenarios,
+  and npm audit all passed before the latest migration and date parser change.
+  Repeat final checks after the last commit.
+- Browser: enquiry through settled invoice was completed with fictional
+  records; approval gate and vendor assignment worked. A branded quote PDF
+  and six-page invoice were visually inspected. The local date parser was fixed
+  and a changed order deadline was verified after reload.
+- Supabase project `putepoxwvtsipgrxhmlv` has migrations
+  `20260929180000` and `20261001080000`. A linked transaction checked roles,
+  pricing, quote immutability, conversion and payment retries, approval gate,
+  settlement, sharing, revocation and cancellation. It rolled back all test
+  records. Live Auth user, business and payment counts were zero afterward.
+- The live database security advisor still flags only intentional public
+  document sharing and role-checked CRM RPC functions. The unnecessary
+  anonymous helper execution grants were removed.
 
-- GitHub: `techclaps2026/goodchapter-crm`, private. GitHub CLI now authenticated as techclaps2026 with admin access.
-- Fresh Supabase: https://supabase.com/dashboard/project/putepoxwvtsipgrxhmlv (The Good Chapter, Singapore). Dashboard showed no migrations. No schema or customer data has been written remotely yet.
-- Vercel target: Techclaps. The CLI is still on the separate Foundana account; browser had the Techclaps session. A Vercel project is not yet created.
-- User has been asked to authenticate the Supabase and Vercel CLIs to finish provisioning without interrupting active Chrome use. No secret keys were requested in chat.
+## Provisioning
 
-## Next steps
+- Vercel project `techclaps/goodchapter-crm` exists, linked locally, with
+  Next.js, Node 24, `npm ci` and `npm run build`. Supabase URL, anon key,
+  server service key and demo=false were submitted as production environment
+  values. The CLI environment listing still needs a successful readback. The
+  local Vercel CLI later switched to the separate `parass71` login, which
+  currently receives 403 for the Techclaps project. Sign back into
+  `techclaps2026` before continuing Vercel configuration.
+- Techclaps is on Vercel Hobby. Vercel restricts Hobby to non-commercial use.
+  No deployment or paid plan change has been made.
+- Resend domain `mail.thegoodchapter.in` was added to the user's account with
+  the records in [EMAIL-SETUP.md](EMAIL-SETUP.md). The user reported it is now
+  verified. The sender, API key and Supabase Auth SMTP remain unconfigured.
+- Initial owner address supplied by the user: `parasnarula71@yahoo.in`. No
+  Auth user or email invitation has been created yet.
 
-1. Finish browser settlement, mobile and shared-document checks.
-2. Apply fresh migration to the confirmed new Supabase project, configure auth/Resend and bootstrap the authorised owner. Follow DEPLOYMENT.md and validate against real Supabase services.
-3. Create/import Vercel project, configure environment values directly in hosting settings and verify the applicable commercial plan. No paid upgrade authorised.
-4. Complete staging checks in VALIDATION.md before empty production launch.
+## Remaining release work
 
-## Preview
+1. Confirm an eligible commercial hosting plan. Finish Vercel environment
+   values, deploy and set the exact HTTPS app URL.
+2. Configure Resend sender/key and Supabase Auth SMTP, redirect URLs, and
+   token-hash email templates. Invite the named owner, then promote that
+   specific Auth UUID to owner.
+3. Use a separate staging environment for real JWT/Storage and email delivery
+   tests before business use. Mobile and shared-document browser inspection
+   still need completion; user requested no further browser access for now.
 
-`CRM_DEMO_MODE=true npm run dev` opens http://127.0.0.1:3100 with fictional in-memory records. Restarting clears them. Production always disables demo mode. No production deployment or real email has occurred.
+No production deployment or real email has occurred.

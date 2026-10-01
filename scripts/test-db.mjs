@@ -58,6 +58,7 @@ await test("fresh migrations create an empty commercial workspace", async () => 
 await test("database recomputes money and strips private line fields", async () => {
   const d = (await db.query("select * from documents where id=$1", [quote]))
     .rows[0];
+  assert.equal(d.valid_until, "2026-12-31");
   assert.equal(Number(d.total), 55224);
   assert.equal(d.items[0].cost, undefined);
   assert.equal(d.customer.notes, undefined);
@@ -263,6 +264,25 @@ await test("public links expose only an allowlisted document and can be revoked"
   );
 });
 await test("anonymous callers cannot read internal data, artwork or mutate", async () => {
+  for (const fn of ["is_member()", "is_owner()", "provision_profile()"]) {
+    assert.equal(
+      (
+        await db.query(
+          "select has_function_privilege('anon', $1, 'EXECUTE') allowed",
+          [fn],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  }
+  assert.equal(
+    (
+      await db.query(
+        "select has_function_privilege('authenticated', 'provision_profile()', 'EXECUTE') allowed",
+      )
+    ).rows[0].allowed,
+    false,
+  );
   await assert.rejects(
     asUser(db, null, (tx) => tx.query("select * from clients")),
     /permission denied/,

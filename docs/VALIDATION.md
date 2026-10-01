@@ -28,3 +28,22 @@ Use fictional records only. Record exact results here before release.
 - Check hosting account capacity and commercial eligibility before production.
 
 Production is not ready until these live staging checks and configuration are complete.
+
+## 1 October checkpoint
+
+The initial GitHub CI passed. Two versioned migrations are applied to the
+dedicated Supabase project. `scripts/verify-linked.sql` passed against the
+real database, then rolled back every fictional record; live Auth users,
+clients, documents and payments were zero afterward. This covers the real
+database roles but does not substitute for real Auth JWT or Storage tests.
+
+The local browser journey completed through invoice settlement, with
+₹55,814 received and zero balance. The approval gate, artwork version and
+vendor assignment were exercised. The local preview's date parsing was
+corrected and a deadline persisted across reload. Quote branding and invoice
+pagination were inspected. Shared-page and mobile visual checks remain open;
+browser access was stopped at the user's request.
+
+Vercel project creation and basic build settings are complete. Resend domain
+verification was reported by the user. Hosting eligibility, API key, SMTP,
+Auth configuration, owner invitation and real delivery tests remain open.
