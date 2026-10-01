@@ -111,11 +111,11 @@ export default function AccountSettings({
           <section className="panel stack">
             <h2>Integrations</h2>
             <p>
-              Supabase sign-in and database · Resend document email · Vercel
-              hosting
+              Facebook, Instagram and LinkedIn content · WhatsApp customer
+              conversations
             </p>
             <Link className="text-link" href="/settings#integrations">
-              View integration settings →
+              View social & communication connections →
             </Link>
           </section>
         )}

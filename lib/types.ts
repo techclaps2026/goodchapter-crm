@@ -169,12 +169,6 @@ export interface Payment {
 export interface Snapshot {
   demo: boolean;
   profile: Profile;
-  integrations: {
-    supabase: boolean;
-    resend: boolean;
-    sender: string;
-    appUrl: string;
-  };
   profiles: Profile[];
   settings: Settings;
   leads: Lead[];

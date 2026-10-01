@@ -168,49 +168,39 @@ export default function Settings({
           </div>
           <section className="panel stack" id="integrations">
             <div>
-              <h2>Integrations</h2>
+              <h2>Social & communication connections</h2>
               <p style={{ marginTop: 8 }}>
-                Services connected to this CRM. Credentials stay in their
-                service settings and are never shown here.
+                Connect business accounts to bring conversations and publishing
+                into the CRM. Account authorisation and platform approval are
+                required before live sync or posting can be enabled.
               </p>
             </div>
             <div className="row between">
               <div>
-                <strong>Supabase</strong>
-                <p>Database and team sign-in</p>
+                <strong>Facebook & Instagram</strong>
+                <p>Page conversations, comments and content publishing</p>
               </div>
-              <Badge>
-                {s.integrations.supabase ? "Configured" : "Needs setup"}
-              </Badge>
+              <Badge>Not connected</Badge>
             </div>
             <div className="row between">
               <div>
-                <strong>Resend</strong>
-                <p>Manual quotation and invoice emails</p>
-                {s.integrations.sender && (
-                  <small>{s.integrations.sender}</small>
-                )}
+                <strong>WhatsApp Business</strong>
+                <p>Send and receive customer messages inside the CRM</p>
               </div>
-              <Badge>
-                {s.integrations.resend ? "Configured" : "Needs setup"}
-              </Badge>
+              <Badge>Not connected</Badge>
             </div>
             <div className="row between">
               <div>
-                <strong>Vercel</strong>
-                <p>CRM hosting</p>
-                {s.integrations.appUrl && (
-                  <small>{s.integrations.appUrl}</small>
-                )}
+                <strong>LinkedIn</strong>
+                <p>Company Page content and supported comments</p>
               </div>
-              <Badge>
-                {s.integrations.appUrl ? "Configured" : "Needs setup"}
-              </Badge>
+              <Badge>Not connected</Badge>
             </div>
-            <p style={{ fontSize: 11 }}>
-              Sign-in emails use Supabase SMTP. Delivery status and SMTP
-              settings are managed in Supabase; document email activity is in
-              Resend.
+            <p style={{ fontSize: 12 }}>
+              Your Facebook Page and Instagram account are the starting point.
+              A Meta developer app is needed for secure account authorisation;
+              a WhatsApp Business Platform number and LinkedIn developer access
+              are separate setup steps. No account is currently syncing.
             </p>
           </section>
         </div>

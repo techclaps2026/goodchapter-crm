@@ -89,12 +89,6 @@ export async function snapshot(): Promise<Snapshot> {
     settings: workspace_settings[0],
     profile: user,
     demo: demoEnabled(),
-    integrations: {
-      supabase: isSupabaseConfigured,
-      resend: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
-      sender: process.env.RESEND_FROM_EMAIL || "",
-      appUrl: process.env.NEXT_PUBLIC_APP_URL || "",
-    },
   } as Snapshot;
 }
 export async function mutate(action: string, payload: unknown, key: string) {
