@@ -5,7 +5,7 @@ import { decryptToken } from "@/lib/social/providers";
 export type BufferOrganization = { id: string; name: string };
 export type BufferChannel = { id: string; name: string; service: string };
 export type BufferAsset = { source: string; thumbnail: string; mimeType: string; type: string };
-export type BufferPost = { id: string; text: string; status: string; dueAt: string | null; channelId: string; assets: BufferAsset[] };
+export type BufferPost = { id: string; text: string; status: string; dueAt: string | null; channelId: string; assets: BufferAsset[]; metadata: { __typename: string; type?: string } | null };
 export type BufferTag = { id: string; name: string; color: string; isLocked: boolean };
 
 export async function bufferQuery<T>(key: string, query: string): Promise<T> {
@@ -34,7 +34,7 @@ export async function bufferChannels(key: string, organizationId: string) {
 }
 
 export async function bufferPosts(key: string, organizationId: string) {
-  const data = await bufferQuery<{ posts: { edges: { node: BufferPost }[] } }>(key, `query { posts(first: 50, input: { organizationId: ${JSON.stringify(organizationId)}, sort: [{ field: dueAt, direction: asc }] }) { edges { node { id text status dueAt channelId assets { source thumbnail mimeType type } } } } }`);
+  const data = await bufferQuery<{ posts: { edges: { node: BufferPost }[] } }>(key, `query { posts(first: 50, input: { organizationId: ${JSON.stringify(organizationId)}, sort: [{ field: dueAt, direction: desc }] }) { edges { node { id text status dueAt channelId assets { source thumbnail mimeType type } metadata { __typename ... on InstagramPostMetadata { type } ... on LinkedInPostMetadata { type } } } } } }`);
   return data.posts.edges.map((edge) => edge.node);
 }
 

@@ -2,7 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ImagePlus } from "lucide-react";
+import { Bookmark, Heart, ImagePlus, Instagram, MessageCircle, MoreHorizontal, Play, Send, X } from "lucide-react";
 import { canManageUsers, type Role } from "@/lib/types";
 import type { BufferChannel, BufferPost, BufferTag } from "@/lib/buffer";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +17,28 @@ const mediaTypes: Record<string, { extension: string; kind: "image" | "video"; m
 function publicImageUrl(value?: string) {
   try { return value && new URL(value).protocol === "https:" ? value : null; }
   catch { return null; }
+}
+function postFormat(post: BufferPost, service?: string) {
+  if (service !== "instagram") return "Post";
+  const format = post.metadata?.type;
+  return format === "story" ? "Story" : format === "reel" ? "Reel" : format === "post" ? "Post" : "Instagram post";
+}
+function postStatus(status: string) {
+  if (status === "sent") return "Published";
+  if (status === "buffer" || status === "scheduled") return "Scheduled";
+  if (status === "draft") return "Draft";
+  if (status === "error") return "Failed";
+  return status;
+}
+function SocialPreview({ channel, type, mediaUrl, mediaKind, caption }: { channel?: BufferChannel; type: "post" | "reel" | "story"; mediaUrl: string; mediaKind: "image" | "video"; caption: string }) {
+  const name = channel?.name || "your.account";
+  const isInstagram = channel?.service === "instagram";
+  const visual = mediaUrl ? mediaKind === "video" ? <video src={mediaUrl} muted loop autoPlay playsInline preload="metadata" /> : <img src={mediaUrl} alt="Post preview" /> : <div className="social-preview-empty"><ImagePlus size={30} /><span>Your media appears here</span></div>;
+  if (isInstagram && type !== "post") return <div className={`social-phone-preview ${type === "story" ? "is-story" : "is-reel"}`}>
+    <div className="social-phone-media">{visual}</div>
+    {type === "story" ? <><div className="social-story-progress"><i /><i /><i /></div><div className="social-story-top"><span className="social-avatar">{name[0]?.toUpperCase()}</span><strong>{name}</strong><span>now</span><MoreHorizontal size={18} /><X size={18} /></div><div className="social-story-footer"><span>Send message</span><Heart size={20} /><Send size={20} /></div></> : <><div className="social-reel-top"><Play size={19} fill="currentColor" /><strong>Reels</strong></div><div className="social-reel-actions"><Heart size={25} /><MessageCircle size={25} /><Send size={25} /><MoreHorizontal size={25} /></div><div className="social-reel-footer"><div className="social-reel-account"><span className="social-avatar">{name[0]?.toUpperCase()}</span><strong>{name}</strong></div><p>{caption || "Your caption appears here…"}</p></div></>}
+  </div>;
+  return <div className="social-feed-preview"><div className="social-feed-account"><span className="social-avatar">{name[0]?.toUpperCase()}</span><strong>{name}</strong><MoreHorizontal size={19} /></div><div className="social-feed-media">{visual}</div><div className="social-feed-actions"><Heart size={23} /><MessageCircle size={23} /><Send size={23} /><Bookmark size={23} className="social-bookmark" /></div><p><strong>{name}</strong> {caption || "Your caption appears here…"}</p><span className="social-preview-time">Preview · just now</span></div>;
 }
 export default function SocialMedia({ role, userId, demo }: { role: Role; userId: string; demo: boolean }) {
   const [data, setData] = useState<SocialData | null>(null);
@@ -44,6 +66,7 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editDueAt, setEditDueAt] = useState("");
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const load = async () => {
     const response = await fetch("/api/buffer", { cache: "no-store" });
     const result = await response.json();
@@ -133,11 +156,11 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
       {canManageUsers(role) && composerOpen && data.channels.length > 0 && <section className="panel social-composer">
         <div className="social-composer-main stack"><h2>Create post</h2>
           <label>Channel<select value={channelId} onChange={(event) => { setChannelId(event.target.value); setPostType("post"); }}>{data.channels.map((item) => <option key={item.id} value={item.id}>{item.service} · {item.name}</option>)}</select></label>
-          {channel?.service === "instagram" && <fieldset className="social-format"><legend>Instagram format</legend>{(["post", "reel", "story"] as const).map((type) => <label key={type}><input type="radio" name="postType" checked={postType === type} onChange={() => setPostType(type)} /> {type[0].toUpperCase() + type.slice(1)}</label>)}</fieldset>}
+          {channel?.service === "instagram" && <fieldset className="social-format"><legend>Instagram format</legend>{(["post", "reel", "story"] as const).map((type) => <label className={postType === type ? "is-selected" : ""} key={type}><input type="radio" name="postType" checked={postType === type} onChange={() => setPostType(type)} /><span>{type[0].toUpperCase() + type.slice(1)}</span></label>)}</fieldset>}
           <label>Caption<textarea maxLength={5000} value={text} onChange={(event) => setText(event.target.value)} rows={5} placeholder="Write your post…" /></label>
-          <div className="social-drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (file) void uploadImage(file); }}><ImagePlus size={24} /><strong>Drag and drop media</strong><label className="button small">Choose image or video<input className="social-file-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4" disabled={uploading || demo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = ""; }} /></label><small>JPG, PNG, WebP up to 8 MB · MP4 up to 25 MB</small></div>
+          {!imageUrl && <div className="social-drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (file) void uploadImage(file); }}><ImagePlus size={24} /><strong>Drag and drop media</strong><label className="button small">Choose image or video<input className="social-file-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4" disabled={uploading || demo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = ""; }} /></label><small>JPG, PNG, WebP up to 8 MB · MP4 up to 25 MB</small></div>}
           {uploading && <p role="status">Uploading media…</p>}
-          {imageUrl && <div className="social-image-preview">{mediaKind === "video" ? <video src={imageUrl} controls preload="metadata" /> : <img src={imageUrl} alt={uploadedName || "Selected social media"} />}<span>{uploadedName || "Media from URL"}</span><button type="button" className="button small" onClick={() => { setImageUrl(""); setUploadedName(""); }}>Remove</button></div>}
+          {imageUrl && <div className="social-image-preview">{mediaKind === "video" ? <video src={imageUrl} controls preload="metadata" /> : <img src={imageUrl} alt={uploadedName || "Selected social media"} />}<span>{uploadedName || "Media from URL"}</span><label className="button small">Replace<input className="social-file-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4" disabled={uploading || demo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = ""; }} /></label><button type="button" className="button small" onClick={() => { setImageUrl(""); setUploadedName(""); }}>Remove</button></div>}
           <details><summary>Use a public media URL</summary><label>HTTPS URL<input type="url" pattern="https://.*" value={imageUrl} onChange={(event) => { setImageUrl(event.target.value); setUploadedName(""); }} placeholder="https://…" /></label><label>Media type<select value={mediaKind} onChange={(event) => setMediaKind(event.target.value as "image" | "video")}><option value="image">Image</option><option value="video">Video</option></select></label></details>
           <p className="social-note">Uploaded media is public so Buffer can fetch it at publishing time. Keep private client artwork out of this composer.</p>
           {postType !== "story" && !notification && <details><summary>First comment · Buffer paid plan</summary><label>First comment<input value={firstComment} maxLength={2200} onChange={(event) => setFirstComment(event.target.value)} placeholder="Add a first comment" /></label><p className="social-note">Your current Buffer free plan rejects first comments. Leave this blank unless the plan changes.</p></details>}
@@ -148,14 +171,24 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
           <label>When to publish<select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="customScheduled">Set date and time</option><option value="addToQueue">Next queue slot</option><option value="shareNow">Publish now</option></select></label>
           {mode === "customScheduled" && <label>Publish time · your local timezone<input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label>}
           <div className="social-composer-actions"><label className="social-check"><input type="checkbox" checked={createAnother} onChange={(event) => setCreateAnother(event.target.checked)} /> Create another</label><div><button className="button" type="button" disabled={busy || uploading} onClick={() => void submit(true)}>Save draft</button><button className="button primary" type="button" disabled={busy || uploading || !channelId} onClick={() => void submit(false)}>{busy ? "Submitting…" : mode === "shareNow" ? "Publish now" : mode === "addToQueue" ? "Add to queue" : "Schedule post"}</button></div></div>
-        </div><aside className="social-composer-preview"><h3>{channel?.service === "instagram" ? "Instagram" : "LinkedIn"} preview</h3><div className="social-preview-card"><strong>{channel?.name}</strong>{imageUrl ? mediaKind === "video" ? <video src={imageUrl} controls preload="metadata" /> : <img src={imageUrl} alt="Post preview" /> : <div className="social-preview-empty"><ImagePlus size={32} /><span>Your media preview appears here</span></div>}<p>{text || "Your caption appears here…"}</p></div><p className="social-note">Preview is approximate. The final post may look different on the social network.</p></aside>
+        </div><aside className="social-composer-preview"><h3>{channel?.service === "instagram" ? `Instagram ${postType}` : "LinkedIn post"} preview</h3><SocialPreview channel={channel} type={postType} mediaUrl={imageUrl} mediaKind={mediaKind} caption={text} /><p className="social-note">Preview is approximate. The final post may look different on the social network.</p></aside>
       </section>}
-      <section className="panel"><div className="social-heading"><h2>Posts</h2><button className="button small" onClick={() => load().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not refresh posts"))}>Refresh</button></div>
-        {!data.posts.length ? <p>No posts found for these channels.</p> : <div className="social-post-list">{data.posts.map((post) => <article key={post.id} className="social-post"><div><strong>{data.channels.find((item) => item.id === post.channelId)?.name || "Channel"}</strong><span>{post.status}{post.dueAt ? ` · ${new Date(post.dueAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST` : ""}</span></div>
-          {post.assets?.some((asset) => publicImageUrl(asset.thumbnail || asset.source)) && <div className="social-post-images">{post.assets.filter((asset) => publicImageUrl(asset.thumbnail || asset.source)).slice(0, 4).map((asset, index) => asset.mimeType?.startsWith("video/") ? <video key={asset.source || index} src={publicImageUrl(asset.source)!} controls preload="metadata" /> : <img key={asset.source || index} src={publicImageUrl(asset.thumbnail || asset.source)!} alt={`Image ${index + 1} for ${data.channels.find((item) => item.id === post.channelId)?.name || "social post"}`} loading="lazy" />)}</div>}
-          {editingId === post.id ? <div className="stack" style={{ marginTop: 12 }}><label>Caption<textarea value={editText} onChange={(event) => setEditText(event.target.value)} rows={4} /></label><label>New publish time · leave blank to keep current time<input type="datetime-local" value={editDueAt} onChange={(event) => setEditDueAt(event.target.value)} /></label><div className="row"><button className="button primary small" disabled={busy || !editText.trim()} onClick={() => changePost(post, false)}>Save changes</button><button className="button small" onClick={() => setEditingId(null)}>Cancel</button></div></div> : <p>{post.text}</p>}
-          {['scheduled', 'buffer', 'draft'].includes(post.status) && editingId !== post.id && <div className="row" style={{ marginTop: 12 }}><button className="button small" onClick={() => { setEditingId(post.id); setEditText(post.text); setEditDueAt(""); }}>Edit</button><button className="button small danger" disabled={busy} onClick={() => changePost(post, true)}>Delete</button></div>}
-        </article>)}</div>}
+      <section className="panel"><div className="social-heading"><div><h2>Posts</h2><p>Content from your connected channels</p></div><button className="button small" onClick={() => load().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not refresh posts"))}>Refresh</button></div>
+        {!data.posts.length ? <p className="social-empty">No posts found for these channels.</p> : <div className="social-post-grid">{data.posts.map((post) => {
+          const postChannel = data.channels.find((item) => item.id === post.channelId);
+          const media = post.assets?.find((asset) => publicImageUrl(asset.thumbnail || asset.source));
+          const format = postFormat(post, postChannel?.service);
+          const expanded = expandedPostId === post.id;
+          return <article key={post.id} className="social-post-card">
+            <div className="social-post-card-media">{media ? media.mimeType?.startsWith("video/") && !media.thumbnail ? <video src={publicImageUrl(media.source)!} preload="metadata" muted /> : <img src={publicImageUrl(media.mimeType?.startsWith("video/") ? media.thumbnail : media.source) || publicImageUrl(media.thumbnail)!} alt={`${format} by ${postChannel?.name || "social account"}`} loading="lazy" /> : <div className="social-post-card-placeholder"><ImagePlus size={28} /><span>Text post</span></div>}{media?.mimeType?.startsWith("video/") && <span className="social-media-format-icon"><Play size={16} fill="currentColor" /></span>}{post.assets?.length > 1 && <span className="social-media-count">1 / {post.assets.length}</span>}</div>
+            <div className="social-post-card-content"><div className="social-post-account">{postChannel?.service === "instagram" ? <Instagram size={17} /> : <span className="social-linkedin-icon">in</span>}<strong>{postChannel?.name || "Channel"}</strong></div>
+              <div className="social-post-meta"><span className="social-format-badge">{format}</span><span className={`social-status-badge social-status-${post.status}`}>{postStatus(post.status)}</span></div>
+              {post.dueAt && <time dateTime={post.dueAt}>{new Date(post.dueAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })} IST</time>}
+              {editingId === post.id ? <div className="stack social-post-editor"><label>Caption<textarea value={editText} onChange={(event) => setEditText(event.target.value)} rows={4} /></label><label>New publish time · leave blank to keep current time<input type="datetime-local" value={editDueAt} onChange={(event) => setEditDueAt(event.target.value)} /></label><div className="row"><button className="button primary small" disabled={busy || !editText.trim()} onClick={() => changePost(post, false)}>Save</button><button className="button small" onClick={() => setEditingId(null)}>Cancel</button></div></div> : <><p className={expanded ? "social-caption is-expanded" : "social-caption"}>{post.text || "No caption"}</p>{post.text?.length > 140 && <button className="social-caption-toggle" type="button" onClick={() => setExpandedPostId(expanded ? null : post.id)}>{expanded ? "Show less" : "Read full caption"}</button>}</>}
+              {["scheduled", "buffer", "draft"].includes(post.status) && editingId !== post.id && <div className="social-post-actions"><button className="button small" onClick={() => { setEditingId(post.id); setEditText(post.text); setEditDueAt(""); }}>Edit</button><button className="button small danger" disabled={busy} onClick={() => changePost(post, true)}>Delete</button></div>}
+            </div>
+          </article>;
+        })}</div>}
       </section>
     </>}
     {error && <p className="form-error" role="alert">{error}</p>}
