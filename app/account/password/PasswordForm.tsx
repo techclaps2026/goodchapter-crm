@@ -52,7 +52,7 @@ export default function PasswordForm() {
       >
         <div className="auth-brand">
           <Image
-            src="/logo.svg"
+            src="/logo-dark.svg"
             alt="The Good Chapter"
             width={210}
             height={52}
