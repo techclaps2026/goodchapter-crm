@@ -465,6 +465,13 @@ p {
 }
 .connection-card-heading strong { font-size: 15px; }
 .connection-card-heading p { margin-top: 3px; }
+.social-channel-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.social-chip { border: 1px solid var(--border); background: var(--muted); padding: 6px 10px; font-size: 12px; }
+.social-heading, .social-post > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.social-post-list { margin-top: 18px; border-top: 1px solid var(--border); }
+.social-post { border-bottom: 1px solid var(--border); padding: 16px 0; }
+.social-post span { color: var(--muted-foreground); font-size: 12px; }
+.social-post p { white-space: pre-wrap; margin: 10px 0 0; }
 .connection-details { display: grid; gap: 5px; }
 .connection-actions {
   display: flex;

@@ -11,6 +11,7 @@ import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import SocialConnections from "./SocialConnections";
+import BufferConnection from "./BufferConnection";
 export default function Settings({
   s,
   mutate,
@@ -167,7 +168,12 @@ export default function Settings({
               <dd>Entered per quotation item; no rates assumed</dd>
             </dl>
           </div>
-          <SocialConnections role={s.profile.role} />
+          <BufferConnection role={s.profile.role} />
+          <details className="panel">
+            <summary>Direct developer app connections · advanced</summary>
+            <p style={{ margin: "12px 0" }}>Only needed if you later register your own Instagram or LinkedIn developer apps. Buffer publishing uses the connection above.</p>
+            <SocialConnections role={s.profile.role} />
+          </details>
         </div>
       )}
       {mode === "users" && (

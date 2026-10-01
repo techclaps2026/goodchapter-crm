@@ -18,6 +18,7 @@ const modules = [
   "settings",
   "users",
   "account",
+  "social",
 ];
 export default async function Page({
   params,
@@ -39,5 +40,6 @@ export default async function Page({
   }
   if (section === "users" && !canManageUsers(profile.role)) notFound();
   if (section === "settings" && !hasOwnerAccess(profile.role)) notFound();
+  if (section === "social" && !canManageUsers(profile.role)) notFound();
   return <CRM section={section} recordId={path[1]} />;
 }

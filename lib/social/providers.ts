@@ -171,7 +171,7 @@ function encryptionKey() {
   return key;
 }
 
-export function encryptToken(token: string, provider: SocialProvider) {
+export function encryptToken(token: string, provider: SocialProvider | "buffer") {
   const key = encryptionKey();
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -180,7 +180,7 @@ export function encryptToken(token: string, provider: SocialProvider) {
   return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), encrypted.toString("base64url")].join(".");
 }
 
-export function decryptToken(value: string, provider: SocialProvider) {
+export function decryptToken(value: string, provider: SocialProvider | "buffer") {
   const [version, ivPart, tagPart, bodyPart] = value.split(".");
   if (version !== "v1" || !ivPart || !tagPart || !bodyPart)
     throw new Error("Invalid social token format");

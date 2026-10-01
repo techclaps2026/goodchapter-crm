@@ -31,6 +31,7 @@ import {
   Flame,
   ChevronRight,
   ArrowLeft,
+  Share2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ import Settings from "./Settings";
 import AccountSettings from "./AccountSettings";
 import InvoiceGenerator from "./InvoiceGenerator";
 import SendEmail from "./SendEmail";
+import SocialMedia from "./SocialMedia";
 import {
   money,
   dateLabel,
@@ -88,6 +90,10 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
     ],
   },
   {
+    group: "COMMUNICATION",
+    items: [["social", "Social Media", Share2]],
+  },
+  {
     group: "MANAGE",
     items: [
       ["settings", "Settings", SettingsIcon],
@@ -114,6 +120,7 @@ const descriptions: Record<string, string> = {
   settings: "Business details, documents and connected services.",
   users: "Invite teammates and manage their access.",
   account: "Your profile and sign-in settings.",
+  social: "Create, schedule and manage your social posts.",
 };
 const SIDEBAR_SCROLL_KEY = "tgc-sidebar-scroll";
 type FormState =
@@ -1185,6 +1192,7 @@ export default function CRM({
       </>
     );
   else if (section === "reports") body = <Reports s={s} />;
+  else if (section === "social") body = <SocialMedia role={s.profile.role} />;
   else if (section === "account")
     body = <AccountSettings s={s} refresh={refresh} />;
   else
@@ -1226,7 +1234,8 @@ export default function CRM({
                 .filter(
                   ([id]) =>
                     (id !== "settings" || owner) &&
-                    (id !== "users" || canManageUsers(s.profile.role)),
+                    (id !== "users" || canManageUsers(s.profile.role)) &&
+                    (id !== "social" || canManageUsers(s.profile.role)),
                 )
                 .map(([id, title, Icon]) => (
                   <Link

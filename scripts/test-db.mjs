@@ -609,6 +609,25 @@ await test("social app secrets and tokens are private; only Owner/Admin can conn
   await asUser(db, OWNER, (tx) => tx.query("select remove_social_connection('instagram')"));
   assert.equal((await db.query("select count(*)::int n from social_connections")).rows[0].n, 0);
 });
+await test("Buffer key is private and duplicate post submissions are claimed once", async () => {
+  await assert.rejects(
+    asUser(db, STAFF, (tx) => tx.query("select save_buffer_config($1,$2,$3)", ["v1.ciphertext-long-enough-for-test", "org-1", "TGC"])),
+    /Owner or Admin/,
+  );
+  await asUser(db, OWNER, (tx) => tx.query("select save_buffer_config($1,$2,$3)", ["v1.ciphertext-long-enough-for-test", "org-1", "TGC"]));
+  const status = await asUser(db, STAFF, (tx) => tx.query("select * from buffer_config_status()"));
+  assert.equal(status.rows[0].organization_name, "TGC");
+  assert.equal(JSON.stringify(status.rows).includes("ciphertext"), false);
+  await assert.rejects(asUser(db, STAFF, (tx) => tx.query("select * from buffer_config")), /permission denied/);
+  await assert.rejects(asUser(db, STAFF, (tx) => tx.query("select * from buffer_config_secret()")), /Owner or Admin/);
+  const requestId = id();
+  const claim = () => asUser(db, OWNER, (tx) => tx.query("select * from claim_buffer_post($1,$2)", [requestId, "instagram-1"]));
+  assert.equal((await claim()).rows[0].claimed, true);
+  assert.equal((await claim()).rows[0].claimed, false);
+  await assert.rejects(asUser(db, STAFF, (tx) => tx.query("select * from claim_buffer_post($1,$2)", [id(), "instagram-1"])), /Owner or Admin/);
+  await asUser(db, OWNER, (tx) => tx.query("select finish_buffer_post($1,$2,$3,$4)", [requestId, "succeeded", "buffer-post-1", null]));
+  assert.equal((await claim()).rows[0].buffer_post_id, "buffer-post-1");
+});
 await test("cancelled orders retain invoices/payments and prohibit new receipts", async () => {
   await call("save_order", {
     ...update,

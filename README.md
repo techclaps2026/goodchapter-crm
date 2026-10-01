@@ -38,6 +38,12 @@ Accepted quotations are immutable; revisions create new drafts. Invoices start f
 
 PDFs are downloaded on demand. WhatsApp/email shortcuts open a draft without changing status. The separate **Send with Resend** action previews the recipient and sends a document link only after staff submit it. Resend acceptance is not a delivery guarantee.
 
+## Social publishing
+
+Owner/Admin can connect an existing Buffer account at **Settings → Social publishing**. First connect a Professional Instagram account and/or LinkedIn Page in Buffer, then create a personal key in [Buffer Settings → API](https://publish.buffer.com/settings/api). Paste the key into the CRM, check it, select the Buffer organization, and save. The key is encrypted in Supabase using the existing server-only `SOCIAL_TOKEN_KEY`; it is never returned to the browser. Do not put the key in chat or a source file.
+
+**Social Media** in the CRM lists the connected Instagram/LinkedIn channels and recent posts. Owner/Admin can add a post to Buffer's queue, schedule it for a specific time, publish it immediately with confirmation, or edit/delete a scheduled post. Instagram image posts require a public HTTPS image URL that stays available until publication; private CRM artwork is not shared. LinkedIn text posts work without an image. There is no automatic social inbox or message sync yet. Buffer channel limits and publishing permissions still apply.
+
 ## Verification
 
 ```sh
