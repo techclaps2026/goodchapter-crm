@@ -29,6 +29,14 @@ additional_redirect_urls = ["http://127.0.0.1:3100/auth/callback"]
 enable_signup = false
 enable_anonymous_sign_ins = false
 
+[auth.email.template.magic_link]
+subject = "Sign in to The Good Chapter"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.invite]
+subject = "You're invited to The Good Chapter"
+content_path = "./supabase/templates/invite.html"
+
 [storage]
 enabled = true
 file_size_limit = "4MiB"
