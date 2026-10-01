@@ -41,9 +41,10 @@ the live Supabase project.
   `techclaps2026` before continuing Vercel configuration.
 - Techclaps is on Vercel Hobby. Vercel restricts Hobby to non-commercial use.
   No deployment or paid plan change has been made.
-- Resend domain `mail.thegoodchapter.in` was added to the user's account with
-  the records in [EMAIL-SETUP.md](EMAIL-SETUP.md). The user reported it is now
-  verified. The sender, API key and Supabase Auth SMTP remain unconfigured.
+- The user replaced the removed `mail.thegoodchapter.in` Resend domain with
+  the verified root domain `thegoodchapter.in`. The root DKIM record resolves.
+  The sender, API key and Supabase Auth SMTP remain unconfigured; see
+  [EMAIL-SETUP.md](EMAIL-SETUP.md).
 - Initial owner address supplied by the user: `parasnarula71@yahoo.in`. No
   Auth user or email invitation has been created yet.
 

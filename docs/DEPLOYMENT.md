@@ -51,8 +51,8 @@ The previously observed Techclaps account was Hobby. Vercel states Hobby is for 
 
 ## Resend document sending
 
-The dedicated sending domain and exact GoDaddy records are documented in
-[EMAIL-SETUP.md](EMAIL-SETUP.md). The user reported this domain verified on
+The verified root sending domain and sender settings are documented in
+[EMAIL-SETUP.md](EMAIL-SETUP.md). The user confirmed this domain on
 1 October 2026.
 
 Verify the sending domain and DNS records in Resend. Use a sending key limited to that domain where available. The CRM sends only on the explicit Send with Resend form submission; document-link sharing shortcuts do not send. Auth mail uses Supabase SMTP separately from the CRM API. Test delivery to a user-designated address, inspect the Resend delivery event and check the link, branding, revocation and PDF. Do not use a real customer as a test recipient.
