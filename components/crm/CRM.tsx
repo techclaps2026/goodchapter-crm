@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- Original SVG brand and user-provided catalogue URLs. */
 "use client";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -115,6 +115,7 @@ const descriptions: Record<string, string> = {
   users: "Invite teammates and manage their access.",
   account: "Your profile and sign-in settings.",
 };
+const SIDEBAR_SCROLL_KEY = "tgc-sidebar-scroll";
 type FormState =
   | {
       kind: EntityKind;
@@ -173,6 +174,28 @@ export default function CRM({
   const [dueOn, setDueOn] = useState("");
   const [emailOpen, setEmailOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const sidebarNavRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (!s || !sidebarNavRef.current) return;
+    try {
+      const saved = Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY));
+      if (Number.isFinite(saved)) sidebarNavRef.current.scrollTop = saved;
+    } catch {
+      // Navigation still works if browser storage is unavailable.
+    }
+  }, [s, section, navOpen]);
+  const saveSidebarScroll = () => {
+    if (!sidebarNavRef.current) return;
+    if (window.matchMedia("(max-width: 879px)").matches && !navOpen) return;
+    try {
+      sessionStorage.setItem(
+        SIDEBAR_SCROLL_KEY,
+        String(sidebarNavRef.current.scrollTop),
+      );
+    } catch {
+      // Storage is only needed to restore position after route changes.
+    }
+  };
   const run = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -1184,11 +1207,18 @@ export default function CRM({
         />
       )}
       <aside className={"sidebar " + (navOpen ? "open" : "")}>
-        <Link href="/" className="brand" onClick={() => setNavOpen(false)}>
+        <Link
+          href="/"
+          className="brand"
+          onClick={() => {
+            saveSidebarScroll();
+            setNavOpen(false);
+          }}
+        >
           <img src="/logo.svg" alt="The Good Chapter" />
           <small>MERCHANDISE CRM</small>
         </Link>
-        <nav>
+        <nav ref={sidebarNavRef} onScroll={saveSidebarScroll}>
           {NAV.map((g) => (
             <div className="nav-group" key={g.group}>
               <p>{g.group}</p>
@@ -1204,6 +1234,7 @@ export default function CRM({
                     href={id === "dashboard" ? "/" : "/" + id}
                     className={"nav-link " + (section === id ? "active" : "")}
                     onClick={() => {
+                      saveSidebarScroll();
                       setNavOpen(false);
                       setSearch("");
                       setFilter("All");
@@ -1247,7 +1278,11 @@ export default function CRM({
               </button>
             )}
           </div>
-          <Link href="/account" className="sidebar-account-link">
+          <Link
+            href="/account"
+            className="sidebar-account-link"
+            onClick={saveSidebarScroll}
+          >
             User settings →
           </Link>
         </div>
