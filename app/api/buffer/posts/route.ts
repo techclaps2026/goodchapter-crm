@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     if (channel.service === "instagram" && input.postType === "reel" && input.mediaKind !== "video") throw new Error("Instagram Reels need a video");
     if (channel.service !== "instagram" && input.postType !== "post") throw new Error("This post type is only available for Instagram");
     if (input.saveToDraft && input.mode === "shareNow") throw new Error("A draft cannot be published now");
+    if (input.notification && input.firstComment) throw new Error("First comments require automatic publishing");
     if (input.mode === "customScheduled" && !input.saveToDraft && (!input.dueAt || Date.parse(input.dueAt) <= Date.now() + 60_000)) throw new Error("Choose a future publishing time");
     if (input.reminder && !input.notification) throw new Error("Music and product notes require reminder publishing");
     if (input.tagIds.length) {

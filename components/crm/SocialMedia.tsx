@@ -33,6 +33,8 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
   const [shareToFeed, setShareToFeed] = useState(true);
   const [reminderMusic, setReminderMusic] = useState("");
   const [reminderProducts, setReminderProducts] = useState("");
+  const [reminderText, setReminderText] = useState("");
+  const [reminderTopics, setReminderTopics] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [createAnother, setCreateAnother] = useState(false);
   const [uploadedName, setUploadedName] = useState("");
@@ -89,15 +91,15 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
       const response = await fetch("/api/buffer/posts", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idempotencyKey: crypto.randomUUID(), channelId, text, mediaUrl: imageUrl, mediaKind,
-          postType, firstComment, notification, shareToFeed, tagIds,
-          reminder: notification && channel?.service === "instagram" ? { music: reminderMusic, products: reminderProducts } : undefined,
+          postType, firstComment: notification || postType === "story" ? "" : firstComment, notification, shareToFeed, tagIds,
+          reminder: notification && channel?.service === "instagram" ? { music: reminderMusic, products: reminderProducts, text: reminderText, topics: postType === "reel" ? reminderTopics : "" } : undefined,
           saveToDraft, mode: saveToDraft ? "addToQueue" : mode,
           ...(!saveToDraft && mode === "customScheduled" ? { dueAt: new Date(dueAt).toISOString() } : {}) }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not submit post");
       setText(""); setImageUrl(""); setUploadedName(""); setDueAt(""); setFirstComment(""); setTagIds([]);
-      setReminderMusic(""); setReminderProducts("");
+      setReminderMusic(""); setReminderProducts(""); setReminderText(""); setReminderTopics("");
       if (!createAnother) setComposerOpen(false);
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not submit post"); }
@@ -138,11 +140,11 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
           {imageUrl && <div className="social-image-preview">{mediaKind === "video" ? <video src={imageUrl} controls preload="metadata" /> : <img src={imageUrl} alt={uploadedName || "Selected social media"} />}<span>{uploadedName || "Media from URL"}</span><button type="button" className="button small" onClick={() => { setImageUrl(""); setUploadedName(""); }}>Remove</button></div>}
           <details><summary>Use a public media URL</summary><label>HTTPS URL<input type="url" pattern="https://.*" value={imageUrl} onChange={(event) => { setImageUrl(event.target.value); setUploadedName(""); }} placeholder="https://…" /></label><label>Media type<select value={mediaKind} onChange={(event) => setMediaKind(event.target.value as "image" | "video")}><option value="image">Image</option><option value="video">Video</option></select></label></details>
           <p className="social-note">Uploaded media is public so Buffer can fetch it at publishing time. Keep private client artwork out of this composer.</p>
-          {postType !== "story" && <details><summary>First comment · Buffer paid plan</summary><label>First comment<input value={firstComment} maxLength={2200} onChange={(event) => setFirstComment(event.target.value)} placeholder="Add a first comment" /></label><p className="social-note">Your current Buffer free plan rejects first comments. Leave this blank unless the plan changes.</p></details>}
+          {postType !== "story" && !notification && <details><summary>First comment · Buffer paid plan</summary><label>First comment<input value={firstComment} maxLength={2200} onChange={(event) => setFirstComment(event.target.value)} placeholder="Add a first comment" /></label><p className="social-note">Your current Buffer free plan rejects first comments. Leave this blank unless the plan changes.</p></details>}
           {!!data.tags?.length && <fieldset className="social-tags"><legend>Tags</legend>{data.tags.map((tag) => <label key={tag.id}><input type="checkbox" checked={tagIds.includes(tag.id)} onChange={(event) => setTagIds(event.target.checked ? [...tagIds, tag.id] : tagIds.filter((id) => id !== tag.id))} />{tag.name}</label>)}</fieldset>}
           <label>Publishing method<select value={notification ? "notification" : "automatic"} onChange={(event) => setNotification(event.target.value === "notification")}><option value="automatic">Automatic · Buffer publishes</option><option value="notification">Reminder · publish manually</option></select></label>
           {channel?.service === "instagram" && postType === "reel" && <label className="social-check"><input type="checkbox" checked={shareToFeed} onChange={(event) => setShareToFeed(event.target.checked)} /> Share Reel to feed</label>}
-          {channel?.service === "instagram" && notification && <details><summary>Reminder notes for Instagram</summary><p className="social-note">These are prompts for manual publishing, not automatic music or product tagging.</p><label>Music to add<input value={reminderMusic} maxLength={200} onChange={(event) => setReminderMusic(event.target.value)} /></label><label>Products to tag<input value={reminderProducts} maxLength={500} onChange={(event) => setReminderProducts(event.target.value)} /></label></details>}
+          {channel?.service === "instagram" && notification && <details><summary>Reminder notes for Instagram</summary><p className="social-note">These are prompts for manual publishing, not automatic stickers, music or product tagging.</p><label>Text or sticker to add<input value={reminderText} maxLength={1000} onChange={(event) => setReminderText(event.target.value)} /></label><label>Music to add<input value={reminderMusic} maxLength={200} onChange={(event) => setReminderMusic(event.target.value)} /></label><label>Products to tag<input value={reminderProducts} maxLength={500} onChange={(event) => setReminderProducts(event.target.value)} /></label>{postType === "reel" && <label>Reel topics<input value={reminderTopics} maxLength={500} onChange={(event) => setReminderTopics(event.target.value)} /></label>}</details>}
           <label>When to publish<select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="customScheduled">Set date and time</option><option value="addToQueue">Next queue slot</option><option value="shareNow">Publish now</option></select></label>
           {mode === "customScheduled" && <label>Publish time · your local timezone<input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label>}
           <div className="social-composer-actions"><label className="social-check"><input type="checkbox" checked={createAnother} onChange={(event) => setCreateAnother(event.target.checked)} /> Create another</label><div><button className="button" type="button" disabled={busy || uploading} onClick={() => void submit(true)}>Save draft</button><button className="button primary" type="button" disabled={busy || uploading || !channelId} onClick={() => void submit(false)}>{busy ? "Submitting…" : mode === "shareNow" ? "Publish now" : mode === "addToQueue" ? "Add to queue" : "Schedule post"}</button></div></div>
