@@ -90,7 +90,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "rounded-app px-3 py-2 text-sm font-medium transition-opacity hover:opacity-90",
                   destructive
-                    ? "bg-destructive text-white"
+                    ? "bg-destructive text-destructive-foreground"
                     : "bg-primary text-primary-foreground",
                 )}
               >
