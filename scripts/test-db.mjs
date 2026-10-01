@@ -566,6 +566,49 @@ await test("anonymous callers cannot read internal data, artwork or mutate", asy
     /permission denied/,
   );
 });
+await test("social app secrets and tokens are private; only Owner/Admin can connect", async () => {
+  const saveApp = (user) => asUser(db, user, (tx) =>
+    tx.query("select save_social_app_config($1,$2,$3,$4::text[])", [
+      "instagram", "example-app-id", "v1.encrypted-app-secret-long-enough", ["instagram_business_basic"],
+    ]),
+  );
+  await assert.rejects(saveApp(STAFF), /Owner or Admin/);
+  await saveApp(OWNER);
+  await assert.rejects(
+    asUser(db, STAFF, (tx) => tx.query("select * from social_app_configs")),
+    /permission denied/,
+  );
+  await assert.rejects(
+    asUser(db, STAFF, (tx) => tx.query("select * from social_app_config_secret('instagram')")),
+    /Owner or Admin/,
+  );
+  const publicSetup = await asUser(db, STAFF, (tx) =>
+    tx.query("select * from social_app_config_status()"),
+  );
+  assert.equal(publicSetup.rows[0].client_id, "example-app-id");
+  assert.equal(JSON.stringify(publicSetup.rows).includes("encrypted-app-secret"), false);
+  await asUser(db, OWNER, (tx) =>
+    tx.query("select save_social_connection($1,$2,$3,$4,$5,$6,$7::text[])", [
+      "instagram", "123456", "thegoodchapter", "v1.encrypted-access-token-long-enough",
+      null, null, ["instagram_business_basic"],
+    ]),
+  );
+  const visible = await asUser(db, STAFF, (tx) =>
+    tx.query("select * from social_connection_status()"),
+  );
+  assert.equal(visible.rows[0].display_name, "thegoodchapter");
+  assert.equal(JSON.stringify(visible.rows).includes("encrypted-access-token"), false);
+  await assert.rejects(
+    asUser(db, STAFF, (tx) => tx.query("select * from social_connections")),
+    /permission denied/,
+  );
+  await assert.rejects(
+    asUser(db, STAFF, (tx) => tx.query("select remove_social_connection('instagram')")),
+    /Owner or Admin/,
+  );
+  await asUser(db, OWNER, (tx) => tx.query("select remove_social_connection('instagram')"));
+  assert.equal((await db.query("select count(*)::int n from social_connections")).rows[0].n, 0);
+});
 await test("cancelled orders retain invoices/payments and prohibit new receipts", async () => {
   await call("save_order", {
     ...update,

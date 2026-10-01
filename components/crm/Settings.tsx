@@ -10,6 +10,7 @@ import {
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import SocialConnections from "./SocialConnections";
 export default function Settings({
   s,
   mutate,
@@ -166,43 +167,7 @@ export default function Settings({
               <dd>Entered per quotation item; no rates assumed</dd>
             </dl>
           </div>
-          <section className="panel stack" id="integrations">
-            <div>
-              <h2>Social & communication connections</h2>
-              <p style={{ marginTop: 8 }}>
-                Connect business accounts to bring conversations and publishing
-                into the CRM. Account authorisation and platform approval are
-                required before live sync or posting can be enabled.
-              </p>
-            </div>
-            <div className="row between">
-              <div>
-                <strong>Facebook & Instagram</strong>
-                <p>Page conversations, comments and content publishing</p>
-              </div>
-              <Badge>Not connected</Badge>
-            </div>
-            <div className="row between">
-              <div>
-                <strong>WhatsApp Business</strong>
-                <p>Send and receive customer messages inside the CRM</p>
-              </div>
-              <Badge>Not connected</Badge>
-            </div>
-            <div className="row between">
-              <div>
-                <strong>LinkedIn</strong>
-                <p>Company Page content and supported comments</p>
-              </div>
-              <Badge>Not connected</Badge>
-            </div>
-            <p style={{ fontSize: 12 }}>
-              Your Facebook Page and Instagram account are the starting point.
-              A Meta developer app is needed for secure account authorisation;
-              a WhatsApp Business Platform number and LinkedIn developer access
-              are separate setup steps. No account is currently syncing.
-            </p>
-          </section>
+          <SocialConnections role={s.profile.role} />
         </div>
       )}
       {mode === "users" && (

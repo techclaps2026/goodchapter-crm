@@ -451,6 +451,53 @@ p {
   text-decoration: none;
 }
 .settings-back-link:hover { text-decoration: underline; }
+.connection-card {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+.connection-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.connection-card-heading strong { font-size: 15px; }
+.connection-card-heading p { margin-top: 3px; }
+.connection-details { display: grid; gap: 5px; }
+.connection-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.connection-config {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+.connection-config code {
+  display: block;
+  padding: 10px 12px;
+  background: var(--muted);
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.connection-config fieldset {
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.connection-config legend { padding: 0 5px; font-weight: 600; }
+.connection-config .check { font-weight: 400; }
+.connection-message {
+  border: 1px solid var(--success);
+  color: var(--success);
+  padding: 10px 12px;
+}
 .team-user-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
