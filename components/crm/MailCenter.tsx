@@ -62,6 +62,13 @@ const formatDate = (value: string) =>
     timeStyle: "short",
     timeZone: "Asia/Kolkata",
   });
+const formatListDate = (value: string) =>
+  new Date(value).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
 const initial: Data = {
   settings: null,
   connection: { connected: false },
@@ -709,166 +716,213 @@ export default function MailCenter({
               </button>
             </div>
           </div>
-          {busy && !data.campaigns.length && !data.sent.length && (
-            <p role="status">Checking sent mailbox…</p>
-          )}
-          {!busy && !data.campaigns.length && !data.sent.length && (
-            <p>
-              No sent mail imported yet. Choose Sync sent mail to bring in
-              recent messages from your mailbox, or start a new mailshot.
-            </p>
-          )}
-          {!!data.campaigns.length && (
-            <h3 className="mail-section-label">CRM mailshots & drafts</h3>
-          )}
-          <div className="mail-campaign-list">
-            {data.campaigns.map((item) => {
-              const recipients = data.recipients.filter(
-                (recipient) => recipient.campaign_id === item.id,
-              );
-              return (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={
-                    activeCampaign === item.id
-                      ? "mail-campaign-row active"
-                      : "mail-campaign-row"
-                  }
-                  onClick={() => {
-                    setActiveCampaign(item.id);
-                    setActiveSent(null);
-                  }}
-                >
-                  <span>
-                    <strong>{item.subject}</strong>
-                    <small>{formatDate(item.created_at)}</small>
-                  </span>
-                  <span className="mail-status">{item.status}</span>
-                  <span>{recipients.length} recipients</span>
-                </button>
-              );
-            })}
-          </div>
-          {campaign && (
-            <div className="mail-detail">
-              <div className="mail-heading">
-                <div>
-                  <h3>{campaign.subject}</h3>
-                  <p>
-                    {campaign.status === "draft"
-                      ? "Draft"
-                      : `Sent ${campaign.sent_at ? formatDate(campaign.sent_at) : "in progress"}`}{" "}
-                    · {campaign.sender_email || data.settings?.sender_email}
-                  </p>
-                </div>
-                {campaign.status === "draft" ? (
-                  <button
-                    type="button"
-                    className="button small"
-                    onClick={() => edit(campaign)}
-                  >
-                    Edit draft
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="button small"
-                    disabled={busy}
-                    onClick={() => refreshTracking(campaign.id)}
-                  >
-                    {busy ? "Checking…" : "Refresh tracking"}
-                  </button>
-                )}
-              </div>
-              <div className="mail-message">{campaign.body}</div>
-              <h3>Recipients</h3>
-              <div className="mail-stats">
-                {[
-                  "accepted",
-                  "delivered",
-                  "opened",
-                  "bounced",
-                  "complained",
-                  "failed",
-                ].map((status) => (
-                  <span key={status}>
-                    <strong>
-                      {
-                        data.recipients.filter(
-                          (recipient) =>
-                            recipient.campaign_id === campaign.id &&
-                            recipient.status === status,
-                        ).length
+          <div
+            className={`mail-split ${campaign || sent ? "has-selection" : ""}`}
+          >
+            <div
+              className="mail-list-pane"
+              aria-label="Sent messages and drafts"
+            >
+              {busy && !data.campaigns.length && !data.sent.length && (
+                <p role="status">Checking sent mailbox…</p>
+              )}
+              {!busy && !data.campaigns.length && !data.sent.length && (
+                <p>
+                  No sent mail imported yet. Choose Sync sent mail to bring in
+                  recent messages from your mailbox, or start a new mailshot.
+                </p>
+              )}
+              {!!data.campaigns.length && (
+                <h3 className="mail-section-label">CRM mailshots & drafts</h3>
+              )}
+              <div className="mail-campaign-list">
+                {data.campaigns.map((item) => {
+                  const recipients = data.recipients.filter(
+                    (recipient) => recipient.campaign_id === item.id,
+                  );
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={
+                        activeCampaign === item.id
+                          ? "mail-campaign-row active"
+                          : "mail-campaign-row"
                       }
-                    </strong>
-                    {status}
-                  </span>
+                      onClick={() => {
+                        setActiveCampaign(item.id);
+                        setActiveSent(null);
+                      }}
+                    >
+                      <span>
+                        <strong>{item.subject}</strong>
+                        <small>{formatListDate(item.created_at)}</small>
+                      </span>
+                      <span className="mail-status">{item.status}</span>
+                      <span>{recipients.length} recipients</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!!data.sent.length && (
+                <h3 className="mail-section-label">Mailbox sent mail</h3>
+              )}
+              <div className="mail-campaign-list">
+                {data.sent.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={
+                      activeSent === item.id
+                        ? "mail-campaign-row active"
+                        : "mail-campaign-row"
+                    }
+                    onClick={() => {
+                      setActiveSent(item.id);
+                      setActiveCampaign(null);
+                    }}
+                  >
+                    <span>
+                      <strong>{item.subject || "(No subject)"}</strong>
+                      <small>
+                        To {item.to_email || "undisclosed recipients"}
+                      </small>
+                    </span>
+                    <span className="mail-status">Mailbox</span>
+                    <span>{formatListDate(item.sent_at)}</span>
+                  </button>
                 ))}
               </div>
-              <div className="mail-recipient-results">
-                {data.recipients
-                  .filter((recipient) => recipient.campaign_id === campaign.id)
-                  .map((recipient) => (
-                    <div key={recipient.id}>
-                      <span>
-                        <strong>{recipient.name}</strong>
-                        <small>{recipient.email}</small>
-                      </span>
-                      <span
-                        className={`mail-status mail-status-${recipient.status}`}
-                      >
-                        {recipient.status}
-                      </span>
-                      {recipient.error && (
-                        <small title={recipient.error}>Delivery issue</small>
-                      )}
-                    </div>
-                  ))}
-              </div>
             </div>
-          )}
-          {!!data.sent.length && (
-            <h3 className="mail-section-label">Mailbox sent mail</h3>
-          )}
-          <div className="mail-campaign-list">
-            {data.sent.map((item) => (
+            <div
+              className="mail-read-pane"
+              key={
+                campaign
+                  ? `campaign:${campaign.id}`
+                  : sent
+                    ? `sent:${sent.id}`
+                    : "empty"
+              }
+            >
               <button
                 type="button"
-                key={item.id}
-                className={
-                  activeSent === item.id
-                    ? "mail-campaign-row active"
-                    : "mail-campaign-row"
-                }
+                className="button small mail-back"
                 onClick={() => {
-                  setActiveSent(item.id);
                   setActiveCampaign(null);
+                  setActiveSent(null);
                 }}
               >
-                <span>
-                  <strong>{item.subject || "(No subject)"}</strong>
-                  <small>To {item.to_email || "undisclosed recipients"}</small>
-                </span>
-                <span className="mail-status">Mailbox</span>
-                <span>{formatDate(item.sent_at)}</span>
+                ← Back to messages
               </button>
-            ))}
-          </div>
-          {sent && (
-            <div className="mail-detail">
-              <h3>{sent.subject || "(No subject)"}</h3>
-              <p>
-                From {sent.from_email} · To{" "}
-                {sent.to_email || "undisclosed recipients"} ·{" "}
-                {formatDate(sent.sent_at)}
-              </p>
-              <div className="mail-message">{sent.body}</div>
-              <p className="mail-note">
-                Imported read-only from the connected mailbox’s Sent folder.
-              </p>
+              {!campaign && !sent && (
+                <div className="mail-read-empty">
+                  Select a message to read it.
+                </div>
+              )}
+              {campaign && (
+                <div className="mail-detail">
+                  <div className="mail-heading">
+                    <div>
+                      <h3>{campaign.subject}</h3>
+                      <p>
+                        {campaign.status === "draft"
+                          ? "Draft"
+                          : `Sent ${campaign.sent_at ? formatDate(campaign.sent_at) : "in progress"}`}{" "}
+                        · {campaign.sender_email || data.settings?.sender_email}
+                      </p>
+                    </div>
+                    {campaign.status === "draft" ? (
+                      <button
+                        type="button"
+                        className="button small"
+                        onClick={() => edit(campaign)}
+                      >
+                        Edit draft
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button small"
+                        disabled={busy}
+                        onClick={() => refreshTracking(campaign.id)}
+                      >
+                        {busy ? "Checking…" : "Refresh tracking"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="mail-message">{campaign.body}</div>
+                  <h3>Recipients</h3>
+                  <div className="mail-stats">
+                    {[
+                      "accepted",
+                      "delivered",
+                      "opened",
+                      "bounced",
+                      "complained",
+                      "failed",
+                    ].map((status) => (
+                      <span key={status}>
+                        <strong>
+                          {
+                            data.recipients.filter(
+                              (recipient) =>
+                                recipient.campaign_id === campaign.id &&
+                                recipient.status === status,
+                            ).length
+                          }
+                        </strong>
+                        {status}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mail-recipient-results">
+                    {data.recipients
+                      .filter(
+                        (recipient) => recipient.campaign_id === campaign.id,
+                      )
+                      .map((recipient) => (
+                        <div key={recipient.id}>
+                          <span>
+                            <strong>{recipient.name}</strong>
+                            <small>{recipient.email}</small>
+                          </span>
+                          <span
+                            className={`mail-status mail-status-${recipient.status}`}
+                          >
+                            {recipient.status}
+                          </span>
+                          {recipient.error && (
+                            <small title={recipient.error}>
+                              Delivery issue
+                            </small>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+              {sent && (
+                <div className="mail-detail">
+                  <h3>{sent.subject || "(No subject)"}</h3>
+                  <div className="mail-message-meta">
+                    <div>
+                      <strong>{sent.from_email}</strong>
+                      <small>
+                        To {sent.to_email || "undisclosed recipients"}
+                      </small>
+                    </div>
+                    <time dateTime={sent.sent_at}>
+                      {formatDate(sent.sent_at)}
+                    </time>
+                  </div>
+                  <div className="mail-message">{sent.body}</div>
+                  <p className="mail-note">
+                    Imported read-only from the connected mailbox’s Sent folder.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </section>
       )}
       {tab === "inbox" && (
@@ -890,63 +944,87 @@ export default function MailCenter({
               {busy ? "Checking…" : "Sync inbox"}
             </button>
           </div>
-          {!data.inbox.length && (
-            <p>
-              No messages imported yet. Connect the mailbox in Settings, then
-              choose Sync inbox.
-            </p>
-          )}
-          <div className="mail-campaign-list">
-            {data.inbox.map((item) => (
-              <button
-                type="button"
-                className={
-                  activeInbox === item.id
-                    ? "mail-campaign-row active"
-                    : "mail-campaign-row"
-                }
-                key={item.id}
-                onClick={() => setActiveInbox(item.id)}
-              >
-                <span>
-                  <strong>{item.subject || "(No subject)"}</strong>
-                  <small>{item.from_email}</small>
-                </span>
-                <span>{formatDate(item.received_at)}</span>
-              </button>
-            ))}
-          </div>
-          {inbox && (
-            <div className="mail-detail">
-              <h3>{inbox.subject || "(No subject)"}</h3>
-              <p>
-                From {inbox.from_email} · To {inbox.to_email} ·{" "}
-                {formatDate(inbox.received_at)}
-              </p>
-              <div className="mail-message">{inbox.body}</div>
-              {inbox.client_id && (
-                <button
-                  type="button"
-                  className="button"
-                  onClick={() => {
-                    setSelected([inbox.client_id!]);
-                    setSubject(`Re: ${inbox.subject}`);
-                    setBody("");
-                    setDraftId(null);
-                    setTab("compose");
-                    setStep("write");
-                  }}
-                >
-                  Reply to client
-                </button>
-              )}
-              {!inbox.client_id && (
-                <p className="mail-note">
-                  Add this sender as a client to reply from the CRM.
+          <div className={`mail-split ${inbox ? "has-selection" : ""}`}>
+            <div className="mail-list-pane" aria-label="Inbox messages">
+              {!data.inbox.length && (
+                <p>
+                  No messages imported yet. Connect the mailbox in Settings,
+                  then choose Sync inbox.
                 </p>
               )}
+              <div className="mail-campaign-list">
+                {data.inbox.map((item) => (
+                  <button
+                    type="button"
+                    className={
+                      activeInbox === item.id
+                        ? "mail-campaign-row active"
+                        : "mail-campaign-row"
+                    }
+                    key={item.id}
+                    onClick={() => setActiveInbox(item.id)}
+                  >
+                    <span>
+                      <strong>{item.from_email}</strong>
+                      <small>{item.subject || "(No subject)"}</small>
+                      <small className="mail-snippet">{item.body}</small>
+                    </span>
+                    <span>{formatListDate(item.received_at)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+            <div className="mail-read-pane" key={inbox?.id || "empty"}>
+              <button
+                type="button"
+                className="button small mail-back"
+                onClick={() => setActiveInbox(null)}
+              >
+                ← Back to inbox
+              </button>
+              {!inbox && (
+                <div className="mail-read-empty">
+                  Select an email to read it.
+                </div>
+              )}
+              {inbox && (
+                <div className="mail-detail">
+                  <h3>{inbox.subject || "(No subject)"}</h3>
+                  <div className="mail-message-meta">
+                    <div>
+                      <strong>{inbox.from_email}</strong>
+                      <small>To {inbox.to_email}</small>
+                    </div>
+                    <time dateTime={inbox.received_at}>
+                      {formatDate(inbox.received_at)}
+                    </time>
+                  </div>
+                  <div className="mail-message">{inbox.body}</div>
+                  {inbox.client_id && (
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => {
+                        setSelected([inbox.client_id!]);
+                        setSubject(`Re: ${inbox.subject}`);
+                        setBody("");
+                        setDraftId(null);
+                        setTab("compose");
+                        setStep("write");
+                      }}
+                    >
+                      Reply to client
+                    </button>
+                  )}
+                  {!inbox.client_id && (
+                    <p className="mail-note">
+                      Add this sender as a client to reply from the CRM.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       )}
     </div>
