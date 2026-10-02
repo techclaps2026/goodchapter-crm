@@ -350,6 +350,9 @@ p {
   align-items: center;
   gap: 18px;
 }
+.profile-photo-row > div {
+  min-width: 0;
+}
 .profile-photo-preview {
   width: 76px;
   height: 76px;
@@ -500,8 +503,11 @@ p {
 }
 .two-col {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 24px;
+}
+.two-col > * {
+  min-width: 0;
 }
 .settings-section {
   width: 100%;

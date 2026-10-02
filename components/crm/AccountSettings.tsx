@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { canManageUsers, roleLabels, type Snapshot } from "@/lib/types";
 
 export default function AccountSettings({
@@ -19,6 +19,7 @@ export default function AccountSettings({
   const [photoError, setPhotoError] = useState("");
   const [saved, setSaved] = useState(false);
   const [photoSaved, setPhotoSaved] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const avatarSrc = s.profile.avatar_path
     ? "/api/profile/avatar?v=" + encodeURIComponent(s.profile.avatar_path)
     : null;
@@ -102,16 +103,21 @@ export default function AccountSettings({
             </span>
             <div>
               <div className="profile-photo-actions">
-                <label className="button" htmlFor="profile-photo-upload">
+                <button
+                  className="button"
+                  type="button"
+                  disabled={photoBusy || s.demo}
+                  onClick={() => photoInputRef.current?.click()}
+                >
                   {photoBusy
                     ? "Uploading…"
                     : avatarSrc
                       ? "Change photo"
                       : "Upload photo"}
-                </label>
+                </button>
                 <input
-                  id="profile-photo-upload"
-                  className="sr-only"
+                  ref={photoInputRef}
+                  hidden
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   disabled={photoBusy || s.demo}
