@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Client, Role } from "@/lib/types";
 import { canManageUsers } from "@/lib/types";
 
@@ -38,12 +38,22 @@ type InboxItem = {
   client_id: string | null;
   received_at: string;
 };
+type SentItem = {
+  id: string;
+  from_email: string;
+  to_email: string;
+  subject: string;
+  body: string;
+  client_id: string | null;
+  sent_at: string;
+};
 type Data = {
   settings: Settings | null;
   connection: { connected: boolean; email?: string };
   campaigns: Campaign[];
   recipients: Recipient[];
   inbox: InboxItem[];
+  sent: SentItem[];
   demo?: boolean;
 };
 const formatDate = (value: string) =>
@@ -58,6 +68,7 @@ const initial: Data = {
   campaigns: [],
   recipients: [],
   inbox: [],
+  sent: [],
 };
 
 export default function MailCenter({
@@ -81,6 +92,8 @@ export default function MailCenter({
   const [draftId, setDraftId] = useState<string | null>(null);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [activeInbox, setActiveInbox] = useState<string | null>(null);
+  const [activeSent, setActiveSent] = useState<string | null>(null);
+  const sentSyncStarted = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -140,6 +153,7 @@ export default function MailCenter({
   );
   const campaign = data.campaigns.find((item) => item.id === activeCampaign);
   const inbox = data.inbox.find((item) => item.id === activeInbox);
+  const sent = data.sent.find((item) => item.id === activeSent);
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -214,6 +228,48 @@ export default function MailCenter({
       await refresh();
       setNotice("Inbox checked for new messages.");
     });
+  const syncSent = () =>
+    run(async () => {
+      const response = await fetch("/api/mail/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: "sent" }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not sync sent mail");
+      await refresh();
+      setNotice("Sent folder checked for new messages.");
+    });
+  useEffect(() => {
+    if (
+      tab !== "campaigns" ||
+      loadState !== "ready" ||
+      !data.connection.connected ||
+      demo ||
+      sentSyncStarted.current
+    )
+      return;
+    sentSyncStarted.current = true;
+    setBusy(true);
+    fetch("/api/mail/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder: "sent" }),
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "Could not sync sent mail");
+        await refresh();
+      })
+      .catch((cause) =>
+        setError(
+          cause instanceof Error ? cause.message : "Could not sync sent mail",
+        ),
+      )
+      .finally(() => setBusy(false));
+  }, [tab, loadState, data.connection.connected, demo, refresh]);
   const connectMailbox = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     run(async () => {
@@ -360,7 +416,7 @@ export default function MailCenter({
           className={tab === "campaigns" ? "active" : ""}
           onClick={() => setTab("campaigns")}
         >
-          Sent & drafts <span>{data.campaigns.length}</span>
+          Sent & drafts <span>{data.campaigns.length + data.sent.length}</span>
         </button>
         <button
           type="button"
@@ -633,16 +689,37 @@ export default function MailCenter({
       {tab === "campaigns" && (
         <section className="panel">
           <div className="mail-heading">
-            <h2>Sent & drafts</h2>
-            <button type="button" className="button small" onClick={reset}>
-              New mailshot
-            </button>
+            <div>
+              <h2>Sent & drafts</h2>
+              <p>
+                Mailshots created here and messages from your connected mailbox.
+              </p>
+            </div>
+            <div className="mail-heading-actions">
+              <button
+                type="button"
+                className="button small"
+                disabled={busy || demo}
+                onClick={syncSent}
+              >
+                {busy ? "Checking…" : "Sync sent mail"}
+              </button>
+              <button type="button" className="button small" onClick={reset}>
+                New mailshot
+              </button>
+            </div>
           </div>
-          {!data.campaigns.length && (
+          {busy && !data.campaigns.length && !data.sent.length && (
+            <p role="status">Checking sent mailbox…</p>
+          )}
+          {!busy && !data.campaigns.length && !data.sent.length && (
             <p>
-              No mailshots yet. Start with one client to check your sender
-              address and format.
+              No sent mail imported yet. Choose Sync sent mail to bring in
+              recent messages from your mailbox, or start a new mailshot.
             </p>
+          )}
+          {!!data.campaigns.length && (
+            <h3 className="mail-section-label">CRM mailshots & drafts</h3>
           )}
           <div className="mail-campaign-list">
             {data.campaigns.map((item) => {
@@ -658,7 +735,10 @@ export default function MailCenter({
                       ? "mail-campaign-row active"
                       : "mail-campaign-row"
                   }
-                  onClick={() => setActiveCampaign(item.id)}
+                  onClick={() => {
+                    setActiveCampaign(item.id);
+                    setActiveSent(null);
+                  }}
                 >
                   <span>
                     <strong>{item.subject}</strong>
@@ -746,6 +826,47 @@ export default function MailCenter({
                     </div>
                   ))}
               </div>
+            </div>
+          )}
+          {!!data.sent.length && (
+            <h3 className="mail-section-label">Mailbox sent mail</h3>
+          )}
+          <div className="mail-campaign-list">
+            {data.sent.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={
+                  activeSent === item.id
+                    ? "mail-campaign-row active"
+                    : "mail-campaign-row"
+                }
+                onClick={() => {
+                  setActiveSent(item.id);
+                  setActiveCampaign(null);
+                }}
+              >
+                <span>
+                  <strong>{item.subject || "(No subject)"}</strong>
+                  <small>To {item.to_email || "undisclosed recipients"}</small>
+                </span>
+                <span className="mail-status">Mailbox</span>
+                <span>{formatDate(item.sent_at)}</span>
+              </button>
+            ))}
+          </div>
+          {sent && (
+            <div className="mail-detail">
+              <h3>{sent.subject || "(No subject)"}</h3>
+              <p>
+                From {sent.from_email} · To{" "}
+                {sent.to_email || "undisclosed recipients"} ·{" "}
+                {formatDate(sent.sent_at)}
+              </p>
+              <div className="mail-message">{sent.body}</div>
+              <p className="mail-note">
+                Imported read-only from the connected mailbox’s Sent folder.
+              </p>
             </div>
           )}
         </section>

@@ -29,10 +29,11 @@ export async function GET() {
         campaigns: [],
         recipients: [],
         inbox: [],
+        sent: [],
         demo: true,
       });
     const db = await createClient();
-    const [settings, campaigns, recipients, inbox, credentials] =
+    const [settings, campaigns, recipients, inbox, sent, credentials] =
       await Promise.all([
         db.from("mail_settings").select("*").single(),
         db
@@ -46,13 +47,25 @@ export async function GET() {
           .select("*")
           .order("received_at", { ascending: false })
           .limit(100),
+        db
+          .from("mail_sent")
+          .select("*")
+          .order("sent_at", { ascending: false })
+          .limit(100),
         mailAdmin()
           .from("mail_credentials")
           .select("email")
           .eq("id", true)
           .maybeSingle(),
       ]);
-    for (const result of [settings, campaigns, recipients, inbox, credentials])
+    for (const result of [
+      settings,
+      campaigns,
+      recipients,
+      inbox,
+      sent,
+      credentials,
+    ])
       if (result.error) throw result.error;
     return NextResponse.json({
       settings: settings.data,
@@ -63,6 +76,7 @@ export async function GET() {
       campaigns: campaigns.data,
       recipients: recipients.data,
       inbox: inbox.data,
+      sent: sent.data,
     });
   } catch (error) {
     return NextResponse.json(

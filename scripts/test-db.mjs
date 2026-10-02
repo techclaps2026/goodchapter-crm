@@ -801,5 +801,33 @@ await test("mail credentials stay private and inactive staff cannot manage mail"
   );
   await assert.rejects(asUser(db, STAFF, (tx) => tx.query("select save_mail_campaign(null,'Hi','Hello',array[$1]::uuid[])", [client])), /Owner or Admin/);
 });
+await test("imported sent mail is private and deduplicated", async () => {
+  const imported = {
+    imap_id: "imap:hello@thegoodchapter.in:Sent:1:42",
+    from_email: "hello@thegoodchapter.in",
+    to_email: "qa@example.test",
+    subject: "Earlier note",
+    body: "Sent from the original mailbox",
+  };
+  await db.query(
+    "insert into mail_sent(imap_id,from_email,to_email,subject,body) values($1,$2,$3,$4,$5) on conflict(imap_id) do nothing",
+    Object.values(imported),
+  );
+  await db.query(
+    "insert into mail_sent(imap_id,from_email,to_email,subject,body) values($1,$2,$3,$4,$5) on conflict(imap_id) do nothing",
+    Object.values(imported),
+  );
+  assert.equal((await db.query("select count(*)::int n from mail_sent")).rows[0].n, 1);
+  await asUser(db, OWNER, async (tx) =>
+    assert.equal((await tx.query("select subject from mail_sent")).rows[0].subject, "Earlier note"),
+  );
+  await asUser(db, STAFF, async (tx) =>
+    assert.equal((await tx.query("select * from mail_sent")).rows.length, 0),
+  );
+  await assert.rejects(
+    asUser(db, OWNER, (tx) => tx.query("delete from mail_sent")),
+    /permission denied/,
+  );
+});
 console.log(`${passed} database scenarios passed`);
 await db.close();
