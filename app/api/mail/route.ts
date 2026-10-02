@@ -7,12 +7,28 @@ import { canManageUsers } from "@/lib/types";
 import { isSameOrigin } from "@/lib/request-origin";
 import { mailAdmin } from "@/lib/supabase/mail-admin";
 
-const draft = z.object({
-  id: z.uuid().nullable().optional(),
-  subject: z.string().trim().min(1).max(240),
-  body: z.string().min(1).max(50000),
-  clientIds: z.array(z.uuid()).min(1).max(200),
-});
+const draft = z
+  .object({
+    id: z.uuid().nullable().optional(),
+    subject: z.string().trim().min(1).max(240),
+    body: z.string().min(1).max(50000),
+    clientIds: z.array(z.uuid()).max(200),
+    externalRecipients: z
+      .array(
+        z.object({
+          name: z.string().trim().max(100),
+          email: z.email().trim().max(254),
+        }),
+      )
+      .max(200)
+      .default([]),
+  })
+  .refine(
+    (value) =>
+      value.clientIds.length + value.externalRecipients.length >= 1 &&
+      value.clientIds.length + value.externalRecipients.length <= 200,
+    { message: "Choose 1 to 200 recipients" },
+  );
 
 export async function GET() {
   try {
@@ -109,11 +125,15 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     const db = await createClient();
-    const { data, error } = await db.rpc("save_mail_campaign", {
+    const { data, error } = await db.rpc("save_mail_campaign_with_recipients", {
       p_id: input.id || null,
       p_subject: input.subject,
       p_body: input.body,
       p_client_ids: [...new Set(input.clientIds)],
+      p_external_recipients: input.externalRecipients.map((recipient) => ({
+        name: recipient.name,
+        email: recipient.email.toLowerCase(),
+      })),
     });
     if (error) throw error;
     return NextResponse.json({ id: data });

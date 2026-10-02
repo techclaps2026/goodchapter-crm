@@ -1340,6 +1340,14 @@ tr.clickable:hover {
 .mail-progress .active { color: var(--secondary); font-weight: 700; }
 .mail-recipient-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 15px 0; font-size: 12px; }
 .mail-recipient-tools span { margin-left: auto; color: var(--muted-foreground); }
+.mail-direct-recipient { margin: 20px 0; padding: 18px; border: 1px solid var(--border); background: #fff; }
+.mail-direct-recipient h4 { margin: 0; }
+.mail-direct-recipient .mail-note { margin: 6px 0 16px; }
+.mail-direct-fields { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.4fr) auto; gap: 12px; align-items: end; }
+.mail-direct-fields label { min-width: 0; }
+.mail-direct-fields input { width: 100%; }
+.mail-direct-list { margin-top: 16px; border-top: 1px solid var(--border); }
+.mail-direct-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; overflow-wrap: anywhere; }
 .mail-client-list { max-height: 480px; overflow: auto; border: 1px solid var(--border); }
 .mail-client-list > p { padding: 20px; }
 .mail-client-row { display: grid; grid-template-columns: 20px minmax(140px, 1fr) minmax(180px, 1fr); align-items: center; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; font-weight: 400; }
@@ -1389,7 +1397,7 @@ tr.clickable:hover {
 .mail-stats span { display: grid; gap: 2px; min-width: 76px; padding: 10px; background: var(--muted); color: var(--muted-foreground); font-size: 11px; text-transform: capitalize; }
 .mail-stats strong { color: var(--foreground); font-size: 18px; }
 .mail-recipient-results > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
-@media (max-width: 700px) { .mail-client-row { grid-template-columns: 20px minmax(0, 1fr); } .mail-client-email { grid-column: 2; } .mail-campaign-row { grid-template-columns: minmax(0, 1fr) auto; } .mail-campaign-row > span:last-child { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .mail-direct-fields { grid-template-columns: minmax(0, 1fr); } .mail-client-row { grid-template-columns: 20px minmax(0, 1fr); } .mail-client-email { grid-column: 2; } .mail-campaign-row { grid-template-columns: minmax(0, 1fr) auto; } .mail-campaign-row > span:last-child { grid-column: 1 / -1; } }
 @media (max-width: 1100px) {
   .mail-split { grid-template-columns: minmax(0, 1fr); }
   .mail-list-pane { border-right: 0; }

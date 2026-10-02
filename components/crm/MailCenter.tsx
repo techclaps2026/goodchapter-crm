@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Client, Role } from "@/lib/types";
 import { canManageUsers } from "@/lib/types";
+import { mergeMail } from "@/lib/mail";
+
+type ExternalRecipient = { name: string; email: string };
 
 type Settings = {
   sender_name: string;
@@ -93,6 +96,12 @@ export default function MailCenter({
     "recipients",
   );
   const [selected, setSelected] = useState<string[]>([]);
+  const [externalRecipients, setExternalRecipients] = useState<
+    ExternalRecipient[]
+  >([]);
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientError, setRecipientError] = useState("");
   const [search, setSearch] = useState("");
   const [sentSearch, setSentSearch] = useState("");
   const [sentFilter, setSentFilter] = useState("all");
@@ -166,6 +175,37 @@ export default function MailCenter({
   const selectedClients = eligible.filter((client) =>
     selected.includes(client.id),
   );
+  const recipientCount = selectedClients.length + externalRecipients.length;
+  const previewRecipient = selectedClients[0] || externalRecipients[0];
+  const addExternalRecipient = () => {
+    const name = recipientName.trim();
+    const email = recipientEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      setRecipientError("Enter a valid email address.");
+      return;
+    }
+    if (name.length > 100) {
+      setRecipientError("Name must be 100 characters or fewer.");
+      return;
+    }
+    if (recipientCount >= 200) {
+      setRecipientError("A mailshot can have up to 200 recipients.");
+      return;
+    }
+    if (
+      externalRecipients.some((recipient) => recipient.email === email) ||
+      selectedClients.some(
+        (client) => client.email.trim().toLowerCase() === email,
+      )
+    ) {
+      setRecipientError("This email address is already selected.");
+      return;
+    }
+    setExternalRecipients((current) => [...current, { name, email }]);
+    setRecipientName("");
+    setRecipientEmail("");
+    setRecipientError("");
+  };
   const campaign = data.campaigns.find((item) => item.id === activeCampaign);
   const inbox = data.inbox.find((item) => item.id === activeInbox);
   const sent = data.sent.find((item) => item.id === activeSent);
@@ -220,7 +260,13 @@ export default function MailCenter({
     const response = await fetch("/api/mail", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: draftId, subject, body, clientIds: selected }),
+      body: JSON.stringify({
+        id: draftId,
+        subject,
+        body,
+        clientIds: selected,
+        externalRecipients,
+      }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not save draft");
@@ -240,6 +286,17 @@ export default function MailCenter({
         )
         .map((recipient) => recipient.client_id!),
     );
+    setExternalRecipients(
+      data.recipients
+        .filter(
+          (recipient) =>
+            recipient.campaign_id === item.id && !recipient.client_id,
+        )
+        .map((recipient) => ({ name: recipient.name, email: recipient.email })),
+    );
+    setRecipientName("");
+    setRecipientEmail("");
+    setRecipientError("");
     setTab("compose");
     setStep("write");
     setActiveCampaign(null);
@@ -250,6 +307,10 @@ export default function MailCenter({
     setSubject("");
     setBody("");
     setSelected([]);
+    setExternalRecipients([]);
+    setRecipientName("");
+    setRecipientEmail("");
+    setRecipientError("");
     setStep("recipients");
     setTab("compose");
     setActiveCampaign(null);
@@ -539,8 +600,8 @@ export default function MailCenter({
             <div>
               <h2>{draftId ? "Edit draft" : "New mailshot"}</h2>
               <p>
-                Choose clients, write your message, then review every recipient
-                before sending.
+                Choose clients or enter a new email address, then review your
+                message before sending.
               </p>
             </div>
             {draftId && (
@@ -564,8 +625,84 @@ export default function MailCenter({
             <>
               <div className="mail-heading">
                 <h3>Select recipients</h3>
-                <strong>{selected.length} selected</strong>
+                <strong>{recipientCount} selected</strong>
               </div>
+              <div className="mail-direct-recipient">
+                <h4>Send to a new email address</h4>
+                <p className="mail-note">No client record is needed.</p>
+                <div className="mail-direct-fields">
+                  <label>
+                    Name (optional)
+                    <input
+                      value={recipientName}
+                      maxLength={100}
+                      onChange={(event) => setRecipientName(event.target.value)}
+                      placeholder="Recipient name"
+                    />
+                  </label>
+                  <label>
+                    Email address
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(event) =>
+                        setRecipientEmail(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addExternalRecipient();
+                        }
+                      }}
+                      placeholder="name@example.com"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={addExternalRecipient}
+                  >
+                    Add recipient
+                  </button>
+                </div>
+                {recipientError && (
+                  <p className="form-error" role="alert">
+                    {recipientError}
+                  </p>
+                )}
+                {!!externalRecipients.length && (
+                  <div
+                    className="mail-direct-list"
+                    aria-label="New email recipients"
+                  >
+                    {externalRecipients.map((recipient) => (
+                      <div key={recipient.email}>
+                        <span>
+                          {recipient.name && (
+                            <strong>{recipient.name} · </strong>
+                          )}
+                          {recipient.email}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-link"
+                          aria-label={`Remove ${recipient.email}`}
+                          onClick={() =>
+                            setExternalRecipients((current) =>
+                              current.filter(
+                                (item) => item.email !== recipient.email,
+                              ),
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <h4 className="mail-section-label">Or select saved clients</h4>
               <input
                 aria-label="Search clients"
                 placeholder="Search clients by name, organisation or email…"
@@ -581,9 +718,19 @@ export default function MailCenter({
                       [
                         ...new Set([
                           ...current,
-                          ...filtered.slice(0, 200).map((client) => client.id),
+                          ...filtered
+                            .filter(
+                              (client) =>
+                                !externalRecipients.some(
+                                  (recipient) =>
+                                    recipient.email ===
+                                    client.email.trim().toLowerCase(),
+                                ),
+                            )
+                            .slice(0, 200 - externalRecipients.length)
+                            .map((client) => client.id),
                         ]),
-                      ].slice(0, 200),
+                      ].slice(0, 200 - externalRecipients.length),
                     )
                   }
                 >
@@ -592,11 +739,14 @@ export default function MailCenter({
                 <button
                   type="button"
                   className="text-link"
-                  onClick={() => setSelected([])}
+                  onClick={() => {
+                    setSelected([]);
+                    setExternalRecipients([]);
+                  }}
                 >
-                  Clear selection
+                  Clear all recipients
                 </button>
-                <span>Up to 200 clients per mailshot</span>
+                <span>Up to 200 recipients per mailshot</span>
               </div>
               <div className="mail-client-list">
                 {filtered.map((client) => (
@@ -606,7 +756,13 @@ export default function MailCenter({
                       checked={selected.includes(client.id)}
                       onChange={() => toggle(client.id)}
                       disabled={
-                        !selected.includes(client.id) && selected.length >= 200
+                        !selected.includes(client.id) &&
+                        (recipientCount >= 200 ||
+                          externalRecipients.some(
+                            (recipient) =>
+                              recipient.email ===
+                              client.email.trim().toLowerCase(),
+                          ))
                       }
                     />
                     <span>
@@ -624,10 +780,10 @@ export default function MailCenter({
                 <button
                   type="button"
                   className="button primary"
-                  disabled={!selected.length}
+                  disabled={!recipientCount}
                   onClick={() => setStep("write")}
                 >
-                  Next · Compose ({selected.length})
+                  Next · Compose ({recipientCount})
                 </button>
               </div>
             </>
@@ -664,19 +820,22 @@ export default function MailCenter({
               </label>
               <div className="mail-preview">
                 <strong>
-                  Preview for {selectedClients[0]?.name || "client"}
+                  Preview for{" "}
+                  {previewRecipient?.name ||
+                    previewRecipient?.email ||
+                    "recipient"}
                 </strong>
                 <p>
-                  {subject.replaceAll(
-                    "{{first_name}}",
-                    selectedClients[0]?.name.split(" ")[0] || "there",
-                  )}
+                  {mergeMail(subject, {
+                    name: previewRecipient?.name || "",
+                    organisation: selectedClients[0]?.organisation || "",
+                  })}
                 </p>
                 <div>
-                  {body.replaceAll(
-                    "{{first_name}}",
-                    selectedClients[0]?.name.split(" ")[0] || "there",
-                  )}
+                  {mergeMail(body, {
+                    name: previewRecipient?.name || "",
+                    organisation: selectedClients[0]?.organisation || "",
+                  })}
                 </div>
               </div>
               <div className="form-footer">
@@ -718,9 +877,9 @@ export default function MailCenter({
                 <strong>{subject}</strong>
               </p>
               <p>
-                {selectedClients.length} selected clients · From{" "}
-                {data.settings?.sender_email || "unconfigured"} · Replies to{" "}
-                {data.settings?.reply_to_email || "unconfigured"}
+                {recipientCount} recipient{recipientCount === 1 ? "" : "s"} ·
+                From {data.settings?.sender_email || "unconfigured"} · Replies
+                to {data.settings?.reply_to_email || "unconfigured"}
               </p>
               <div className="mail-review-list">
                 {selectedClients.map((client) => (
@@ -728,9 +887,16 @@ export default function MailCenter({
                     {client.name} &lt;{client.email}&gt;
                   </span>
                 ))}
+                {externalRecipients.map((recipient) => (
+                  <span key={recipient.email}>
+                    {recipient.name
+                      ? `${recipient.name} <${recipient.email}>`
+                      : recipient.email}
+                  </span>
+                ))}
               </div>
               <p className="mail-note">
-                This sends a separate email to each client. Delivery and open
+                This sends a separate email to each recipient. Delivery and open
                 status are reported by Resend after sending; opens are
                 approximate.
               </p>
@@ -764,7 +930,7 @@ export default function MailCenter({
                 >
                   {busy
                     ? "Sending…"
-                    : `Send to ${selectedClients.length} client${selectedClients.length === 1 ? "" : "s"}`}
+                    : `Send to ${recipientCount} recipient${recipientCount === 1 ? "" : "s"}`}
                 </button>
               </div>
             </div>
@@ -1194,6 +1360,9 @@ export default function MailCenter({
                       className="button"
                       onClick={() => {
                         setSelected([inbox.client_id!]);
+                        setExternalRecipients([]);
+                        setRecipientName("");
+                        setRecipientEmail("");
                         setSubject(`Re: ${inbox.subject}`);
                         setBody("");
                         setDraftId(null);
@@ -1205,9 +1374,25 @@ export default function MailCenter({
                     </button>
                   )}
                   {!inbox.client_id && (
-                    <p className="mail-note">
-                      Add this sender as a client to reply from the CRM.
-                    </p>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => {
+                        setSelected([]);
+                        setExternalRecipients([
+                          { name: "", email: inbox.from_email.toLowerCase() },
+                        ]);
+                        setRecipientName("");
+                        setRecipientEmail("");
+                        setSubject(`Re: ${inbox.subject}`);
+                        setBody("");
+                        setDraftId(null);
+                        setTab("compose");
+                        setStep("write");
+                      }}
+                    >
+                      Write to this address
+                    </button>
                   )}
                 </div>
               )}

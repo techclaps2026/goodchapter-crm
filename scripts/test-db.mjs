@@ -791,6 +791,114 @@ await test("mail drafts snapshot clients and can only be claimed once", async ()
   await db.query("delete from mail_credentials");
   await assert.rejects(asUser(db, OWNER, (tx) => tx.query("select claim_mail_campaign($1)", [unsent])), /Connect your mailbox/);
 });
+await test("mail drafts accept new addresses without creating clients", async () => {
+  await asUser(db, OWNER, (tx) =>
+    tx.query(
+      "select save_mail_credentials('hello@thegoodchapter.in','v1.long-encrypted-value-for-test-only')",
+    ),
+  );
+  const direct = await asUser(
+    db,
+    OWNER,
+    async (tx) =>
+      (
+        await tx.query(
+          "select save_mail_campaign_with_recipients(null,'A personal note','Hello',array[]::uuid[],$1::jsonb) as id",
+          [JSON.stringify([{ name: "New person", email: "New@Example.test" }])],
+        )
+      ).rows[0].id,
+  );
+  const rows = (
+    await db.query(
+      "select client_id,name,email from mail_recipients where campaign_id=$1",
+      [direct],
+    )
+  ).rows;
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].client_id, null);
+  assert.equal(rows[0].name, "New person");
+  assert.equal(rows[0].email, "new@example.test");
+  assert.equal(
+    (
+      await db.query(
+        "select count(*)::int n from clients where lower(email)='new@example.test'",
+      )
+    ).rows[0].n,
+    0,
+  );
+
+  await asUser(db, OWNER, (tx) =>
+    tx.query(
+      "select save_mail_campaign_with_recipients($1,'Updated','Hello',array[$2]::uuid[],$3::jsonb)",
+      [
+        direct,
+        client,
+        JSON.stringify([{ name: "Other person", email: "other@example.test" }]),
+      ],
+    ),
+  );
+  const edited = (
+    await db.query(
+      "select email from mail_recipients where campaign_id=$1 order by email",
+      [direct],
+    )
+  ).rows;
+  assert.deepEqual(
+    edited.map((row) => row.email),
+    ["other@example.test", "qa@example.test"],
+  );
+  await assert.rejects(
+    asUser(db, OWNER, (tx) =>
+      tx.query(
+        "select save_mail_campaign_with_recipients(null,'Nope','Hello',array[]::uuid[],$1::jsonb)",
+        [
+          JSON.stringify([
+            { name: "A", email: "a@example.test" },
+            { name: "B", email: "A@example.test" },
+          ]),
+        ],
+      ),
+    ),
+    /unique/,
+  );
+  await assert.rejects(
+    asUser(db, OWNER, (tx) =>
+      tx.query(
+        "select save_mail_campaign_with_recipients(null,'Nope','Hello',array[]::uuid[],$1::jsonb)",
+        [JSON.stringify([{ name: "A", email: "invalid" }])],
+      ),
+    ),
+    /valid recipient/,
+  );
+  await db.query(
+    "insert into mail_opt_outs(email) values('blocked@example.test') on conflict do nothing",
+  );
+  await assert.rejects(
+    asUser(db, OWNER, (tx) =>
+      tx.query(
+        "select save_mail_campaign_with_recipients(null,'Nope','Hello',array[]::uuid[],$1::jsonb)",
+        [JSON.stringify([{ name: "Blocked", email: "blocked@example.test" }])],
+      ),
+    ),
+    /opted out/,
+  );
+  const claimed = await asUser(db, OWNER, (tx) =>
+    tx.query("select claim_mail_campaign($1) as claimed", [direct]),
+  );
+  assert.equal(claimed.rows[0].claimed, true);
+  await assert.rejects(
+    asUser(db, OWNER, (tx) =>
+      tx.query(
+        "select save_mail_campaign_with_recipients($1,'Again','Hello',array[]::uuid[],$2::jsonb)",
+        [
+          direct,
+          JSON.stringify([{ name: "New", email: "again@example.test" }]),
+        ],
+      ),
+    ),
+    /Only drafts/,
+  );
+});
 await test("mail credentials stay private and inactive staff cannot manage mail", async () => {
   await asUser(db, OWNER, (tx) => tx.query("select save_mail_credentials('hello@thegoodchapter.in','v1.long-encrypted-value-for-test-only')"));
   await asUser(db, OWNER, async (tx) => {
