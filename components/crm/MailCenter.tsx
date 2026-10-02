@@ -101,6 +101,7 @@ export default function MailCenter({
   const [activeInbox, setActiveInbox] = useState<string | null>(null);
   const [activeSent, setActiveSent] = useState<string | null>(null);
   const sentSyncStarted = useRef(false);
+  const inboxSyncing = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -276,6 +277,41 @@ export default function MailCenter({
         ),
       )
       .finally(() => setBusy(false));
+  }, [tab, loadState, data.connection.connected, demo, refresh]);
+  useEffect(() => {
+    if (
+      tab !== "inbox" ||
+      loadState !== "ready" ||
+      !data.connection.connected ||
+      demo
+    )
+      return;
+    let stopped = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible" || inboxSyncing.current)
+        return;
+      inboxSyncing.current = true;
+      try {
+        const response = await fetch("/api/mail/sync", { method: "POST" });
+        if (!response.ok) throw new Error("Could not check for new messages");
+        if (!stopped) await refresh();
+      } catch (cause) {
+        if (!stopped)
+          setError(
+            cause instanceof Error ? cause.message : "Could not check inbox",
+          );
+      } finally {
+        inboxSyncing.current = false;
+      }
+    };
+    void check();
+    const interval = window.setInterval(() => void check(), 20_000);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", check);
+    };
   }, [tab, loadState, data.connection.connected, demo, refresh]);
   const connectMailbox = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -931,8 +967,8 @@ export default function MailCenter({
             <div>
               <h2>Inbox</h2>
               <p>
-                Messages from the connected GoDaddy mailbox appear here. They
-                remain in your original mailbox.
+                Messages from the connected GoDaddy mailbox appear here
+                automatically. They remain in your original mailbox.
               </p>
             </div>
             <button
@@ -948,8 +984,8 @@ export default function MailCenter({
             <div className="mail-list-pane" aria-label="Inbox messages">
               {!data.inbox.length && (
                 <p>
-                  No messages imported yet. Connect the mailbox in Settings,
-                  then choose Sync inbox.
+                  No messages imported yet. New mail is checked automatically;
+                  you can also use Sync inbox now.
                 </p>
               )}
               <div className="mail-campaign-list">

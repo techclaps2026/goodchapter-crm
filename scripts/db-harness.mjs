@@ -16,7 +16,7 @@ export async function createDatabase() {
  create function storage.foldername(name text) returns text[] language sql immutable as $$select string_to_array(name,'/')$$;`);
   const migrations = resolve(process.cwd(), "supabase/migrations");
   for (const name of (await readdir(migrations))
-    .filter((n) => n.endsWith(".sql"))
+    .filter((n) => n.endsWith(".sql") && !n.includes("mail_background_sync"))
     .sort()) {
     const migration = (
       await readFile(resolve(migrations, name), "utf8")
