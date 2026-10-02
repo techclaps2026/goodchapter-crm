@@ -11,7 +11,13 @@ type MailSettings = {
   signature: string;
 };
 
-export default function MailIntegration({ role, demo }: { role: Role; demo: boolean }) {
+export default function MailIntegration({
+  role,
+  demo,
+}: {
+  role: Role;
+  demo: boolean;
+}) {
   const [settings, setSettings] = useState<MailSettings | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -102,6 +108,15 @@ export default function MailIntegration({ role, demo }: { role: Role; demo: bool
         throw new Error(result.error || "Could not connect mailbox");
       setMailbox(result);
       setMailboxPassword("");
+      setSettings((current) =>
+        current
+          ? {
+              ...current,
+              sender_email: result.email,
+              reply_to_email: result.email,
+            }
+          : current,
+      );
       setMessage(
         "Mailbox connected. Open Mail center → Inbox and choose Sync inbox.",
       );
@@ -138,6 +153,7 @@ export default function MailIntegration({ role, demo }: { role: Role; demo: bool
                 required
                 type="email"
                 list="mail-addresses"
+                disabled={!!mailbox?.connected}
                 value={settings.sender_email}
                 onChange={(event) => change("sender_email", event.target.value)}
               />
@@ -148,6 +164,7 @@ export default function MailIntegration({ role, demo }: { role: Role; demo: bool
                 required
                 type="email"
                 list="mail-addresses"
+                disabled={!!mailbox?.connected}
                 value={settings.reply_to_email}
                 onChange={(event) =>
                   change("reply_to_email", event.target.value)
@@ -164,6 +181,12 @@ export default function MailIntegration({ role, demo }: { role: Role; demo: bool
               />
             </label>
           </div>
+          {mailbox?.connected && (
+            <p className="mail-note">
+              From and Reply-to use the connected mailbox. Replace the
+              connection below to change the address.
+            </p>
+          )}
           <datalist id="mail-addresses">
             <option value="hello@thegoodchapter.in" />
             <option value="studio@thegoodchapter.in" />
@@ -213,7 +236,7 @@ export default function MailIntegration({ role, demo }: { role: Role; demo: bool
             <input
               required
               type="password"
-              autoComplete="new-password"
+              autoComplete="current-password"
               value={mailboxPassword}
               onChange={(event) => setMailboxPassword(event.target.value)}
             />
@@ -223,9 +246,13 @@ export default function MailIntegration({ role, demo }: { role: Role; demo: bool
           The CRM checks the password against GoDaddy’s secure IMAP server, then
           stores it encrypted on the server. It is never shown again. Syncing
           reads the latest messages without moving or deleting them in GoDaddy.
+          Use the email mailbox password, not your GoDaddy account password.
         </p>
         <div>
-          <button className="button" disabled={busy || !mailboxPassword || demo}>
+          <button
+            className="button"
+            disabled={busy || !mailboxPassword || demo}
+          >
             {busy
               ? "Connecting…"
               : mailbox?.connected

@@ -36,6 +36,18 @@ export async function POST(
         { status: 403 },
       );
     campaignId = z.uuid().parse((await context.params).id);
+    const admin = mailAdmin();
+    const { data: credentials, error: credentialError } = await admin
+      .from("mail_credentials")
+      .select("id")
+      .eq("id", true)
+      .maybeSingle();
+    if (credentialError) throw credentialError;
+    if (!credentials)
+      return NextResponse.json(
+        { error: "Connect your mailbox before sending a mailshot" },
+        { status: 409 },
+      );
     const apiKey = process.env.RESEND_API_KEY;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!apiKey || !baseUrl)
@@ -52,7 +64,6 @@ export async function POST(
         { status: 409 },
       );
     claimed = true;
-    const admin = mailAdmin();
     const [campaignResult, recipientsResult, settingsResult] =
       await Promise.all([
         admin.from("mail_campaigns").select("*").eq("id", campaignId).single(),
@@ -177,12 +188,10 @@ export async function POST(
           latest.event_type === "email.suppressed"
         ) {
           update.bounced_at = latest.occurred_at;
-          const suppression = await admin
-            .from("mail_opt_outs")
-            .upsert({
-              email: recipient.email,
-              source: latest.event_type.slice(6),
-            });
+          const suppression = await admin.from("mail_opt_outs").upsert({
+            email: recipient.email,
+            source: latest.event_type.slice(6),
+          });
           if (suppression.error) throw suppression.error;
         }
         const { error } = await admin

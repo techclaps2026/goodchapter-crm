@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { demoEnabled } from "@/lib/demo";
 import { canManageUsers } from "@/lib/types";
 import { isSameOrigin } from "@/lib/request-origin";
+import { mailAdmin } from "@/lib/supabase/mail-admin";
 
 const draft = z.object({
   id: z.uuid().nullable().optional(),
@@ -24,30 +25,41 @@ export async function GET() {
     if (demoEnabled())
       return NextResponse.json({
         settings: null,
+        connection: { connected: false },
         campaigns: [],
         recipients: [],
         inbox: [],
         demo: true,
       });
     const db = await createClient();
-    const [settings, campaigns, recipients, inbox] = await Promise.all([
-      db.from("mail_settings").select("*").single(),
-      db
-        .from("mail_campaigns")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      db.from("mail_recipients").select("*").limit(5000),
-      db
-        .from("mail_inbox")
-        .select("*")
-        .order("received_at", { ascending: false })
-        .limit(100),
-    ]);
-    for (const result of [settings, campaigns, recipients, inbox])
+    const [settings, campaigns, recipients, inbox, credentials] =
+      await Promise.all([
+        db.from("mail_settings").select("*").single(),
+        db
+          .from("mail_campaigns")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        db.from("mail_recipients").select("*").limit(5000),
+        db
+          .from("mail_inbox")
+          .select("*")
+          .order("received_at", { ascending: false })
+          .limit(100),
+        mailAdmin()
+          .from("mail_credentials")
+          .select("email")
+          .eq("id", true)
+          .maybeSingle(),
+      ]);
+    for (const result of [settings, campaigns, recipients, inbox, credentials])
       if (result.error) throw result.error;
     return NextResponse.json({
       settings: settings.data,
+      connection: {
+        connected: !!credentials.data,
+        email: credentials.data?.email,
+      },
       campaigns: campaigns.data,
       recipients: recipients.data,
       inbox: inbox.data,
@@ -71,6 +83,17 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     const input = draft.parse(await request.json());
+    const { data: credentials, error: credentialError } = await mailAdmin()
+      .from("mail_credentials")
+      .select("id")
+      .eq("id", true)
+      .maybeSingle();
+    if (credentialError) throw credentialError;
+    if (!credentials)
+      return NextResponse.json(
+        { error: "Connect your mailbox before creating a mailshot" },
+        { status: 409 },
+      );
     const db = await createClient();
     const { data, error } = await db.rpc("save_mail_campaign", {
       p_id: input.id || null,

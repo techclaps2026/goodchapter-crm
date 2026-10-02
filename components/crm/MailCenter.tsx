@@ -40,6 +40,7 @@ type InboxItem = {
 };
 type Data = {
   settings: Settings | null;
+  connection: { connected: boolean; email?: string };
   campaigns: Campaign[];
   recipients: Recipient[];
   inbox: InboxItem[];
@@ -53,6 +54,7 @@ const formatDate = (value: string) =>
   });
 const initial: Data = {
   settings: null,
+  connection: { connected: false },
   campaigns: [],
   recipients: [],
   inbox: [],
@@ -82,6 +84,11 @@ export default function MailCenter({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const [mailboxEmail, setMailboxEmail] = useState("hello@thegoodchapter.in");
+  const [mailboxPassword, setMailboxPassword] = useState("");
   const refresh = useCallback(async () => {
     const response = await fetch("/api/mail", { cache: "no-store" });
     const result = await response.json();
@@ -95,12 +102,14 @@ export default function MailCenter({
         if (!response.ok)
           throw new Error(result.error || "Could not load mail");
         setData(result);
+        setLoadState("ready");
       })
-      .catch((cause) =>
+      .catch((cause) => {
         setError(
           cause instanceof Error ? cause.message : "Could not load mail",
-        ),
-      );
+        );
+        setLoadState("error");
+      });
   }, []);
   const eligible = useMemo(
     () =>
@@ -205,6 +214,27 @@ export default function MailCenter({
       await refresh();
       setNotice("Inbox checked for new messages.");
     });
+  const connectMailbox = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    run(async () => {
+      const response = await fetch("/api/mail/mailbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: mailboxEmail,
+          password: mailboxPassword,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not connect mailbox");
+      setMailboxPassword("");
+      await refresh();
+      setNotice(
+        `Connected ${result.email}. You can now compose mail and sync your inbox.`,
+      );
+    });
+  };
   const refreshTracking = (id: string) =>
     run(async () => {
       const response = await fetch(`/api/mail/${id}/refresh`, {
@@ -222,6 +252,97 @@ export default function MailCenter({
     return (
       <section className="panel">
         <h2>Owner or Admin access required</h2>
+      </section>
+    );
+  if (loadState === "loading")
+    return (
+      <section className="panel" role="status" aria-busy="true">
+        <h2>Checking email connection…</h2>
+        <p>Opening the Mail center.</p>
+      </section>
+    );
+  if (loadState === "error")
+    return (
+      <section className="panel stack" role="alert">
+        <h2>Could not check the email connection</h2>
+        <p>{error}</p>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            setError("");
+            setLoadState("loading");
+            refresh()
+              .then(() => setLoadState("ready"))
+              .catch((cause) => {
+                setError(
+                  cause instanceof Error
+                    ? cause.message
+                    : "Could not load mail",
+                );
+                setLoadState("error");
+              });
+          }}
+        >
+          Try again
+        </button>
+      </section>
+    );
+  if (!data.connection.connected)
+    return (
+      <section className="panel mail-connect stack">
+        <div>
+          <h2>Connect your email to begin</h2>
+          <p>
+            Connect your GoDaddy Professional Email mailbox before composing
+            mailshots or opening the CRM inbox.
+          </p>
+        </div>
+        <form className="stack mail-settings-form" onSubmit={connectMailbox}>
+          <label>
+            Mailbox address
+            <input
+              required
+              type="email"
+              autoComplete="username"
+              value={mailboxEmail}
+              onChange={(event) => setMailboxEmail(event.target.value)}
+            />
+          </label>
+          <label>
+            Mailbox password
+            <input
+              required
+              type="password"
+              autoComplete="current-password"
+              value={mailboxPassword}
+              onChange={(event) => setMailboxPassword(event.target.value)}
+            />
+          </label>
+          <p className="mail-note">
+            Use the password for this email mailbox, not your GoDaddy account
+            password. The CRM checks it over secure IMAP and stores it
+            encrypted. Your inbox remains in GoDaddy.
+          </p>
+          <div>
+            <button
+              className="button primary"
+              disabled={busy || demo || !mailboxPassword}
+            >
+              {busy ? "Connecting…" : "Connect email"}
+            </button>
+          </div>
+        </form>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        {demo && (
+          <p className="mail-note">
+            Connecting is disabled in the fictional local preview.
+          </p>
+        )}
       </section>
     );
   return (

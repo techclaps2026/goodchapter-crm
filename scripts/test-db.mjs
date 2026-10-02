@@ -764,6 +764,16 @@ await test("uninvited public signups have no workspace access", async () => {
   );
 });
 await test("mail drafts snapshot clients and can only be claimed once", async () => {
+  await assert.rejects(
+    asUser(db, OWNER, (tx) => tx.query("select save_mail_campaign(null,'Hello','A note',array[$1]::uuid[])", [client])),
+    /Connect your mailbox/,
+  );
+  await asUser(db, OWNER, (tx) => tx.query("select save_mail_credentials('hello@thegoodchapter.in','v1.long-encrypted-value-for-test-only')"));
+  const configured = (await db.query("select sender_email,reply_to_email from mail_settings")).rows[0];
+  assert.equal(configured.sender_email, "hello@thegoodchapter.in");
+  assert.equal(configured.reply_to_email, "hello@thegoodchapter.in");
+  await asUser(db, OWNER, (tx) => tx.query("select save_mail_settings('Chapter','other@thegoodchapter.in','other@thegoodchapter.in','','')"));
+  assert.equal((await db.query("select sender_email from mail_settings")).rows[0].sender_email, "hello@thegoodchapter.in");
   const draft = await asUser(db, OWNER, async (tx) =>
     (await tx.query("select save_mail_campaign(null,'Hello {{first_name}}','A note',array[$1]::uuid[]) as id", [client])).rows[0].id,
   );
@@ -775,6 +785,11 @@ await test("mail drafts snapshot clients and can only be claimed once", async ()
   assert.equal(first.rows[0].claimed, true);
   assert.equal(second.rows[0].claimed, false);
   await assert.rejects(asUser(db, OWNER, (tx) => tx.query("select save_mail_campaign($1,'Changed','No',array[$2]::uuid[])", [draft, client])), /Only drafts/);
+  const unsent = await asUser(db, OWNER, async (tx) =>
+    (await tx.query("select save_mail_campaign(null,'Later','A note',array[$1]::uuid[]) as id", [client])).rows[0].id,
+  );
+  await db.query("delete from mail_credentials");
+  await assert.rejects(asUser(db, OWNER, (tx) => tx.query("select claim_mail_campaign($1)", [unsent])), /Connect your mailbox/);
 });
 await test("mail credentials stay private and inactive staff cannot manage mail", async () => {
   await asUser(db, OWNER, (tx) => tx.query("select save_mail_credentials('hello@thegoodchapter.in','v1.long-encrypted-value-for-test-only')"));
