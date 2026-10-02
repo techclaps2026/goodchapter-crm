@@ -32,6 +32,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Share2,
+  Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ import AccountSettings from "./AccountSettings";
 import InvoiceGenerator from "./InvoiceGenerator";
 import SendEmail from "./SendEmail";
 import SocialMedia from "./SocialMedia";
+import MailCenter from "./MailCenter";
 import CrmLoading from "./CrmLoading";
 import {
   money,
@@ -92,7 +94,7 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
   },
   {
     group: "COMMUNICATION",
-    items: [["social", "Social Media", Share2]],
+    items: [["social", "Social Media", Share2], ["mail", "Mail center", Mail]],
   },
   {
     group: "MANAGE",
@@ -122,6 +124,7 @@ const descriptions: Record<string, string> = {
   users: "Invite teammates and manage their access.",
   account: "Your profile and sign-in settings.",
   social: "Create, schedule and manage your social posts.",
+  mail: "Send thoughtful mailshots and follow each conversation.",
 };
 const SIDEBAR_SCROLL_KEY = "tgc-sidebar-scroll";
 type FormState =
@@ -1223,6 +1226,7 @@ export default function CRM({
     );
   else if (section === "reports") body = <Reports s={s} />;
   else if (section === "social") body = <SocialMedia role={s.profile.role} userId={s.profile.id} demo={s.demo} />;
+  else if (section === "mail") body = <MailCenter clients={s.clients} role={s.profile.role} demo={s.demo} />;
   else if (section === "account")
     body = <AccountSettings s={s} refresh={refresh} />;
   else
@@ -1263,7 +1267,8 @@ export default function CRM({
                   ([id]) =>
                     (id !== "settings" || owner) &&
                     (id !== "users" || canManageUsers(s.profile.role)) &&
-                    (id !== "social" || canManageUsers(s.profile.role)),
+                    (id !== "social" || canManageUsers(s.profile.role)) &&
+                    (id !== "mail" || canManageUsers(s.profile.role)),
                 )
                 .map(([id, title, Icon]) => (
                   <Link

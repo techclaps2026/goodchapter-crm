@@ -763,5 +763,28 @@ await test("uninvited public signups have no workspace access", async () => {
     /active team account/,
   );
 });
+await test("mail drafts snapshot clients and can only be claimed once", async () => {
+  const draft = await asUser(db, OWNER, async (tx) =>
+    (await tx.query("select save_mail_campaign(null,'Hello {{first_name}}','A note',array[$1]::uuid[]) as id", [client])).rows[0].id,
+  );
+  const recipient = (await db.query("select email,name from mail_recipients where campaign_id=$1", [draft])).rows[0];
+  assert.equal(recipient.email, "qa@example.test");
+  assert.equal(recipient.name, "Changed name");
+  const first = await asUser(db, OWNER, (tx) => tx.query("select claim_mail_campaign($1) as claimed", [draft]));
+  const second = await asUser(db, OWNER, (tx) => tx.query("select claim_mail_campaign($1) as claimed", [draft]));
+  assert.equal(first.rows[0].claimed, true);
+  assert.equal(second.rows[0].claimed, false);
+  await assert.rejects(asUser(db, OWNER, (tx) => tx.query("select save_mail_campaign($1,'Changed','No',array[$2]::uuid[])", [draft, client])), /Only drafts/);
+});
+await test("mail credentials stay private and inactive staff cannot manage mail", async () => {
+  await asUser(db, OWNER, (tx) => tx.query("select save_mail_credentials('hello@thegoodchapter.in','v1.long-encrypted-value-for-test-only')"));
+  await asUser(db, OWNER, async (tx) => {
+    await assert.rejects(tx.query("select * from mail_credentials"), /permission denied/);
+  });
+  await asUser(db, STAFF, async (tx) =>
+    assert.equal((await tx.query("select * from mail_campaigns")).rows.length, 0),
+  );
+  await assert.rejects(asUser(db, STAFF, (tx) => tx.query("select save_mail_campaign(null,'Hi','Hello',array[$1]::uuid[])", [client])), /Owner or Admin/);
+});
 console.log(`${passed} database scenarios passed`);
 await db.close();

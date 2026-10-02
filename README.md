@@ -4,6 +4,14 @@ A private CRM for custom merchandise and corporate gifting. Built with Next.js, 
 
 Live application: [app.thegoodchapter.in](https://app.thegoodchapter.in). Invited users sign in with email and password. The first owner can use **Set or reset password** on `/login` to choose a password through a secure email link; email-link sign-in remains available.
 
+### Mail center
+
+Owner and Admin can choose sender, reply-to, and signature in **Settings → Email integration**, then create drafts and send personalized mailshots to up to 200 selected clients in **Mail center**. Each client receives an individual message with an unsubscribe link. Suppressed, bounced, and unsubscribed addresses are excluded from future drafts. The final recipient review is required before sending.
+
+The **Inbox** reads the latest 100 messages from the GoDaddy Professional Email mailbox using IMAP over TLS. Connect it in Settings with the mailbox address and password; the password is encrypted with `SOCIAL_TOKEN_KEY` in a server-only table. The CRM imports plain-text bodies when the Owner/Admin selects **Sync inbox**, leaving the original mailbox untouched. GoDaddy Pro Light does not require any forwarding change for this path. Historical messages beyond the latest 100 and attachments are not imported.
+
+Resend handles outbound delivery. **Refresh tracking** reads each campaign's last known event from the Resend API. For live event updates, configure a Resend webhook at `https://app.thegoodchapter.in/api/mail/webhook` for `email.delivered`, `email.opened`, `email.bounced`, `email.complained`, `email.failed`, and `email.suppressed`, then set its signing secret as `RESEND_WEBHOOK_SECRET` in Vercel. Enable open tracking on the sending domain in Resend; an open is a tracking-pixel observation, not proof a human read the message. A Resend API key with read access is required for manual status refresh; set `RESEND_TRACKING_API_KEY` if the sending key is send-only. The optional Resend receiving address can later be configured if a mailbox plan supports forwarding.
+
 ## Local preview
 
 Use Node 24 and npm.

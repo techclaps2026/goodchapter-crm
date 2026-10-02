@@ -12,6 +12,7 @@ import { Badge } from "./shared";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import SocialConnections from "./SocialConnections";
 import BufferConnection from "./BufferConnection";
+import MailIntegration from "./MailIntegration";
 export default function Settings({
   s,
   mutate,
@@ -169,6 +170,7 @@ export default function Settings({
             </dl>
           </div>
           <BufferConnection role={s.profile.role} />
+          <MailIntegration role={s.profile.role} demo={s.demo} />
           <details className="panel">
             <summary>Direct developer app connections · advanced</summary>
             <p style={{ margin: "12px 0" }}>Only needed if you later register your own Instagram or LinkedIn developer apps. Buffer publishing uses the connection above.</p>
