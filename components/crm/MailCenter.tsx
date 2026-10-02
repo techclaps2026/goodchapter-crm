@@ -94,6 +94,13 @@ export default function MailCenter({
   );
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [sentSearch, setSentSearch] = useState("");
+  const [sentFilter, setSentFilter] = useState("all");
+  const [sentRange, setSentRange] = useState("all");
+  const [filterNow, setFilterNow] = useState(0);
+  const [inboxSearch, setInboxSearch] = useState("");
+  const [inboxFilter, setInboxFilter] = useState("all");
+  const [inboxRange, setInboxRange] = useState("all");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -162,6 +169,41 @@ export default function MailCenter({
   const campaign = data.campaigns.find((item) => item.id === activeCampaign);
   const inbox = data.inbox.find((item) => item.id === activeInbox);
   const sent = data.sent.find((item) => item.id === activeSent);
+  const matchesRange = (date: string, range: string) =>
+    range === "all" ||
+    new Date(date).getTime() >= filterNow - Number(range) * 86400000;
+  const matchingCampaigns = data.campaigns.filter((item) => {
+    if (sentFilter === "mailbox") return false;
+    if (sentFilter === "drafts" && item.status !== "draft") return false;
+    if (sentFilter === "sent" && item.status === "draft") return false;
+    if (!matchesRange(item.sent_at || item.created_at, sentRange)) return false;
+    const recipients = data.recipients
+      .filter((recipient) => recipient.campaign_id === item.id)
+      .map((recipient) => `${recipient.name} ${recipient.email}`)
+      .join(" ");
+    return `${item.subject} ${item.body} ${recipients}`
+      .toLowerCase()
+      .includes(sentSearch.trim().toLowerCase());
+  });
+  const matchingSent = data.sent.filter(
+    (item) =>
+      sentFilter !== "drafts" &&
+      sentFilter !== "mailshots" &&
+      matchesRange(item.sent_at, sentRange) &&
+      `${item.subject} ${item.from_email} ${item.to_email} ${item.body}`
+        .toLowerCase()
+        .includes(sentSearch.trim().toLowerCase()),
+  );
+  const matchingInbox = data.inbox.filter(
+    (item) =>
+      (inboxFilter === "all" ||
+        (inboxFilter === "clients" && !!item.client_id) ||
+        (inboxFilter === "other" && !item.client_id)) &&
+      matchesRange(item.received_at, inboxRange) &&
+      `${item.subject} ${item.from_email} ${item.to_email} ${item.body}`
+        .toLowerCase()
+        .includes(inboxSearch.trim().toLowerCase()),
+  );
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -753,6 +795,63 @@ export default function MailCenter({
             </div>
           </div>
           <div
+            className="mail-filters"
+            role="group"
+            aria-label="Filter sent mail"
+          >
+            <label className="mail-filter-search">
+              <span className="sr-only">Search sent mail</span>
+              <input
+                type="search"
+                placeholder="Search subject, recipient or message…"
+                value={sentSearch}
+                onChange={(event) => {
+                  setSentSearch(event.target.value);
+                  setActiveCampaign(null);
+                  setActiveSent(null);
+                }}
+              />
+            </label>
+            <label>
+              <span className="sr-only">Message type</span>
+              <select
+                value={sentFilter}
+                onChange={(event) => {
+                  setSentFilter(event.target.value);
+                  setActiveCampaign(null);
+                  setActiveSent(null);
+                }}
+              >
+                <option value="all">All messages</option>
+                <option value="sent">Sent only</option>
+                <option value="drafts">Drafts</option>
+                <option value="mailshots">CRM mailshots</option>
+                <option value="mailbox">Mailbox sent</option>
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Date range</span>
+              <select
+                value={sentRange}
+                onChange={(event) => {
+                  setSentRange(event.target.value);
+                  setFilterNow(Date.now());
+                  setActiveCampaign(null);
+                  setActiveSent(null);
+                }}
+              >
+                <option value="all">Any time</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </label>
+            <span className="mail-filter-count" aria-live="polite">
+              {matchingCampaigns.length + matchingSent.length} of{" "}
+              {data.campaigns.length + data.sent.length}
+            </span>
+          </div>
+          <div
             className={`mail-split ${campaign || sent ? "has-selection" : ""}`}
           >
             <div
@@ -768,11 +867,14 @@ export default function MailCenter({
                   recent messages from your mailbox, or start a new mailshot.
                 </p>
               )}
-              {!!data.campaigns.length && (
+              {!!(data.campaigns.length || data.sent.length) &&
+                !matchingCampaigns.length &&
+                !matchingSent.length && <p>No messages match these filters.</p>}
+              {!!matchingCampaigns.length && (
                 <h3 className="mail-section-label">CRM mailshots & drafts</h3>
               )}
               <div className="mail-campaign-list">
-                {data.campaigns.map((item) => {
+                {matchingCampaigns.map((item) => {
                   const recipients = data.recipients.filter(
                     (recipient) => recipient.campaign_id === item.id,
                   );
@@ -800,11 +902,11 @@ export default function MailCenter({
                   );
                 })}
               </div>
-              {!!data.sent.length && (
+              {!!matchingSent.length && (
                 <h3 className="mail-section-label">Mailbox sent mail</h3>
               )}
               <div className="mail-campaign-list">
-                {data.sent.map((item) => (
+                {matchingSent.map((item) => (
                   <button
                     type="button"
                     key={item.id}
@@ -980,6 +1082,53 @@ export default function MailCenter({
               {busy ? "Checking…" : "Sync inbox"}
             </button>
           </div>
+          <div className="mail-filters" role="group" aria-label="Filter inbox">
+            <label className="mail-filter-search">
+              <span className="sr-only">Search inbox</span>
+              <input
+                type="search"
+                placeholder="Search sender, subject or message…"
+                value={inboxSearch}
+                onChange={(event) => {
+                  setInboxSearch(event.target.value);
+                  setActiveInbox(null);
+                }}
+              />
+            </label>
+            <label>
+              <span className="sr-only">Sender type</span>
+              <select
+                value={inboxFilter}
+                onChange={(event) => {
+                  setInboxFilter(event.target.value);
+                  setActiveInbox(null);
+                }}
+              >
+                <option value="all">All senders</option>
+                <option value="clients">Linked clients</option>
+                <option value="other">Unlinked senders</option>
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Date range</span>
+              <select
+                value={inboxRange}
+                onChange={(event) => {
+                  setInboxRange(event.target.value);
+                  setFilterNow(Date.now());
+                  setActiveInbox(null);
+                }}
+              >
+                <option value="all">Any time</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </label>
+            <span className="mail-filter-count" aria-live="polite">
+              {matchingInbox.length} of {data.inbox.length}
+            </span>
+          </div>
           <div className={`mail-split ${inbox ? "has-selection" : ""}`}>
             <div className="mail-list-pane" aria-label="Inbox messages">
               {!data.inbox.length && (
@@ -988,8 +1137,11 @@ export default function MailCenter({
                   you can also use Sync inbox now.
                 </p>
               )}
+              {!!data.inbox.length && !matchingInbox.length && (
+                <p>No messages match these filters.</p>
+              )}
               <div className="mail-campaign-list">
-                {data.inbox.map((item) => (
+                {matchingInbox.map((item) => (
                   <button
                     type="button"
                     className={

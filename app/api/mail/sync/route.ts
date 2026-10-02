@@ -49,8 +49,12 @@ export async function GET(request: Request) {
   if (a.length !== b.length || !timingSafeEqual(a, b))
     return new Response(null, { status: 401 });
   try {
-    const imported = await syncMailbox("inbox");
-    return NextResponse.json({ ok: true, checked: imported });
+    const folder =
+      new URL(request.url).searchParams.get("folder") === "sent"
+        ? "sent"
+        : "inbox";
+    const imported = await syncMailbox(folder);
+    return NextResponse.json({ ok: true, folder, checked: imported });
   } catch (error) {
     console.error("Scheduled inbox sync failed", error);
     return NextResponse.json(

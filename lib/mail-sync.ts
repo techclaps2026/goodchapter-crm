@@ -3,6 +3,7 @@ import { simpleParser } from "mailparser";
 import { mailAdmin } from "@/lib/supabase/mail-admin";
 import { decryptToken } from "@/lib/social/providers";
 import { imapClient } from "@/lib/mail-imap";
+import { legacyHtmlPlaceholder, readableMailBody } from "@/lib/mail-body";
 
 export async function syncMailbox(folder: "inbox" | "sent") {
   const db = mailAdmin();
@@ -46,15 +47,19 @@ export async function syncMailbox(folder: "inbox" | "sent") {
       );
       const [existing, crmClients] = await Promise.all([
         folder === "sent"
-          ? db.from("mail_sent").select("imap_id").in("imap_id", ids)
-          : db.from("mail_inbox").select("resend_id").in("resend_id", ids),
+          ? db.from("mail_sent").select("imap_id,body").in("imap_id", ids)
+          : db.from("mail_inbox").select("resend_id,body").in("resend_id", ids),
         db.from("clients").select("id,email").eq("archived", false),
       ]);
       if (existing.error) throw existing.error;
       if (crmClients.error) throw crmClients.error;
-      const known = new Set(
-        (existing.data || []).map((item) =>
-          "imap_id" in item ? item.imap_id : item.resend_id,
+      const known = new Map(
+        (existing.data || []).map(
+          (item) =>
+            [
+              "imap_id" in item ? item.imap_id : item.resend_id,
+              item.body,
+            ] as const,
         ),
       );
       const clientByEmail = new Map(
@@ -68,14 +73,17 @@ export async function syncMailbox(folder: "inbox" | "sent") {
           folder === "sent"
             ? `imap:${credentials.email}:${mailboxPath}:${mailbox.uidValidity}:${message.uid}`
             : `imap:${credentials.email}:${mailbox.uidValidity}:${message.uid}`;
-        if (known.has(id) || (message.size || 0) > 1024 * 1024 * 5) continue;
+        if (
+          (known.has(id) && known.get(id) !== legacyHtmlPlaceholder) ||
+          (message.size || 0) > 1024 * 1024 * 5
+        )
+          continue;
         const full = await client.fetchOne(message.seq, {
           source: true,
           internalDate: true,
         });
         if (!full || !full.source) continue;
         const parsed = await simpleParser(full.source, {
-          skipHtmlToText: true,
           skipTextToHtml: true,
         });
         const fromEmail = parsed.from?.value[0]?.address?.toLowerCase();
@@ -88,9 +96,19 @@ export async function syncMailbox(folder: "inbox" | "sent") {
           .flatMap((group) => group.value)
           .map((recipient) => recipient.address?.toLowerCase())
           .filter((address): address is string => !!address);
-        const body = (
-          parsed.text || "[HTML email; open in your original mailbox]"
-        ).slice(0, 100000);
+        const body = readableMailBody(parsed);
+        if (known.has(id)) {
+          const { error } =
+            folder === "sent"
+              ? await db.from("mail_sent").update({ body }).eq("imap_id", id)
+              : await db
+                  .from("mail_inbox")
+                  .update({ body })
+                  .eq("resend_id", id);
+          if (error) throw error;
+          imported++;
+          continue;
+        }
         const sentAt = new Date(
           message.internalDate || parsed.date || Date.now(),
         ).toISOString();
