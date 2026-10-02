@@ -1327,14 +1327,6 @@ export default function CRM({
               </button>
             )}
           </div>
-          <Link
-            href="/account"
-            prefetch={false}
-            className="sidebar-account-link"
-            onClick={(event) => navigateSection(event, "account")}
-          >
-            User settings →
-          </Link>
         </div>
       </aside>
       <div className="workspace">
