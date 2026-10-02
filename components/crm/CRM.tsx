@@ -2,7 +2,7 @@
 "use client";
 import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Users,
@@ -165,13 +165,22 @@ function entityValues(x: unknown) {
   return x as Record<string, string | number | boolean | null>;
 }
 export default function CRM({
-  section,
-  recordId,
+  section: serverSection,
+  recordId: serverRecordId,
 }: {
   section: string;
   recordId?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [pathSection, pathRecordId] = pathname.split("/").filter(Boolean);
+  const section = pathSection
+    ? titles[pathSection]
+      ? pathSection
+      : serverSection
+    : "dashboard";
+  const recordId =
+    pathSection && titles[pathSection] ? pathRecordId : serverRecordId;
   const { data: s, isLoading, error, mutate, busy, refresh } = useCRM();
   const [navOpen, setNavOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -203,6 +212,33 @@ export default function CRM({
       // Storage is only needed to restore position after route changes.
     }
   };
+  const navigateSection = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    id: string,
+  ) => {
+    saveSidebarScroll();
+    setNavOpen(false);
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    setSearch("");
+    setFilter("All");
+    setForm(null);
+    setEmailOpen(false);
+    setInvoiceOpen(false);
+    const href = id === "dashboard" ? "/" : `/${id}`;
+    if (window.location.pathname !== href) {
+      window.history.pushState(null, "", href);
+      window.scrollTo(0, 0);
+    }
+  };
   const run = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -214,7 +250,10 @@ export default function CRM({
     return (
       <div className="content">
         <div className="eyebrow">THE GOOD CHAPTER</div>
-        <h1 style={{ marginTop: 20 }}>Opening the studio…</h1>
+        <div className="row" role="status" aria-live="polite" style={{ marginTop: 20 }}>
+          <span className="navigation-spinner" aria-hidden="true" />
+          <h1>Opening the studio…</h1>
+        </div>
         <div className="skeleton" />
       </div>
     );
@@ -1217,11 +1256,9 @@ export default function CRM({
       <aside className={"sidebar " + (navOpen ? "open" : "")}>
         <Link
           href="/"
+          prefetch={false}
           className="brand"
-          onClick={() => {
-            saveSidebarScroll();
-            setNavOpen(false);
-          }}
+          onClick={(event) => navigateSection(event, "dashboard")}
         >
           <img src="/logo.svg" alt="The Good Chapter" />
           <small>MERCHANDISE CRM</small>
@@ -1241,13 +1278,9 @@ export default function CRM({
                   <Link
                     key={id}
                     href={id === "dashboard" ? "/" : "/" + id}
+                    prefetch={false}
                     className={"nav-link " + (section === id ? "active" : "")}
-                    onClick={() => {
-                      saveSidebarScroll();
-                      setNavOpen(false);
-                      setSearch("");
-                      setFilter("All");
-                    }}
+                    onClick={(event) => navigateSection(event, id)}
                   >
                     <Icon />
                     {title}
@@ -1289,8 +1322,9 @@ export default function CRM({
           </div>
           <Link
             href="/account"
+            prefetch={false}
             className="sidebar-account-link"
-            onClick={saveSidebarScroll}
+            onClick={(event) => navigateSection(event, "account")}
           >
             User settings →
           </Link>

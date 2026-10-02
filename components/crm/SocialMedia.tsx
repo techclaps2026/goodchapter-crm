@@ -144,7 +144,7 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not change post"); }
     finally { setBusy(false); }
   };
-  if (!data && !error) return <div className="panel">Loading connected channels…</div>;
+  if (!data && !error) return <div className="panel social-loading" role="status" aria-live="polite"><span className="navigation-spinner" aria-hidden="true" /> Loading connected channels…</div>;
   return <div className="stack">
     {!data?.connected && <section className="panel"><h2>Connect your social channels</h2><p>Connect Instagram or LinkedIn in Buffer, then add your Buffer API key in CRM settings.</p><Link className="button primary" href="/settings#buffer">Connection settings →</Link></section>}
     {data?.connected && <>

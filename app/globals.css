@@ -365,6 +365,35 @@ p {
   max-width: 1560px;
   margin: auto;
 }
+.navigation-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 2px solid var(--border);
+  border-top-color: var(--secondary);
+  border-radius: 50%;
+  animation: navigation-spin 0.7s linear infinite;
+}
+@keyframes navigation-spin {
+  to { transform: rotate(360deg); }
+}
+.route-loading {
+  max-width: 760px;
+  padding: 56px 36px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+.route-loading h1 { margin: 12px 0 0; }
+.route-loading p { color: var(--muted-foreground); }
+.social-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted-foreground);
+}
 .page-header {
   display: flex;
   justify-content: space-between;
