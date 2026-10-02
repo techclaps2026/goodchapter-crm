@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Authenticated profile images use a private API route. */
 "use client";
 
 import Link from "next/link";
@@ -13,8 +14,47 @@ export default function AccountSettings({
 }) {
   const [name, setName] = useState(s.profile.full_name);
   const [busy, setBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [photoSaved, setPhotoSaved] = useState(false);
+  const avatarSrc = s.profile.avatar_path
+    ? "/api/profile/avatar?v=" + encodeURIComponent(s.profile.avatar_path)
+    : null;
+
+  const changePhoto = async (file?: File) => {
+    if (!file && !s.profile.avatar_path) return;
+    setPhotoError("");
+    setPhotoSaved(false);
+    setPhotoBusy(true);
+    try {
+      const body = new FormData();
+      if (file) {
+        if (
+          !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+          !file.size ||
+          file.size > 2 * 1024 * 1024
+        )
+          throw new Error("Choose a JPG, PNG or WebP image up to 2 MB");
+        body.append("file", file);
+      }
+      const response = await fetch("/api/profile/avatar", {
+        method: file ? "POST" : "DELETE",
+        ...(file ? { body } : {}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update photo");
+      await refresh();
+      setPhotoSaved(true);
+    } catch (cause) {
+      setPhotoError(
+        cause instanceof Error ? cause.message : "Could not update photo",
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   return (
     <div className="two-col">
@@ -49,6 +89,60 @@ export default function AccountSettings({
         <div>
           <h2>Your profile</h2>
           <p style={{ marginTop: 8 }}>The name your team sees in the CRM.</p>
+        </div>
+        <div>
+          <strong>Profile photo</strong>
+          <div className="profile-photo-row" style={{ marginTop: 12 }}>
+            <span className="profile-photo-preview">
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="Your profile photo" />
+              ) : (
+                s.profile.full_name.slice(0, 1) || "G"
+              )}
+            </span>
+            <div>
+              <div className="profile-photo-actions">
+                <label className="button" htmlFor="profile-photo-upload">
+                  {photoBusy
+                    ? "Uploading…"
+                    : avatarSrc
+                      ? "Change photo"
+                      : "Upload photo"}
+                </label>
+                <input
+                  id="profile-photo-upload"
+                  className="sr-only"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={photoBusy || s.demo}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void changePhoto(file);
+                    event.target.value = "";
+                  }}
+                />
+                {avatarSrc && (
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={photoBusy || s.demo}
+                    onClick={() => void changePhoto()}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="profile-photo-help">
+                JPG, PNG or WebP · up to 2 MB. Visible only when signed in.
+              </p>
+            </div>
+          </div>
+          {photoError && (
+            <p className="form-error" role="alert">
+              {photoError}
+            </p>
+          )}
+          {photoSaved && <p role="status">Photo updated.</p>}
         </div>
         <label>
           Full name

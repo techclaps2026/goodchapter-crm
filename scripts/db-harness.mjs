@@ -12,7 +12,7 @@ export async function createDatabase() {
  grant usage on schema auth,public,storage to anon,authenticated;
  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;
- grant select,insert on storage.objects to authenticated;
+ grant select,insert,delete on storage.objects to authenticated;
  create function storage.foldername(name text) returns text[] language sql immutable as $$select string_to_array(name,'/')$$;`);
   const migrations = resolve(process.cwd(), "supabase/migrations");
   for (const name of (await readdir(migrations))

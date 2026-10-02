@@ -15,6 +15,7 @@ export interface Profile {
   role: Role;
   active: boolean;
   deleted_at?: string | null;
+  avatar_path?: string;
 }
 export interface Settings {
   company_name: string;

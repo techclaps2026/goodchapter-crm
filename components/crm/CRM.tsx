@@ -1295,7 +1295,14 @@ export default function CRM({
         <div className="sidebar-bottom">
           <div className="row">
             <span className="avatar">
-              {s.profile.full_name.slice(0, 1) || "G"}
+              {s.profile.avatar_path ? (
+                <img
+                  src={"/api/profile/avatar?v=" + encodeURIComponent(s.profile.avatar_path)}
+                  alt=""
+                />
+              ) : (
+                s.profile.full_name.slice(0, 1) || "G"
+              )}
             </span>
             <div>
               <div style={{ fontSize: 12 }}>{s.profile.full_name}</div>

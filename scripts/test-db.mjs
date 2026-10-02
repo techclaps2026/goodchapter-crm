@@ -636,6 +636,67 @@ await test("only Owner or Admin can upload public social media under their own f
   await assert.rejects(asUser(db, OWNER, (tx) => tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", ["social-media", `${STAFF}/${id()}.jpg`])), /row-level security/);
   await assert.rejects(asUser(db, STAFF, (tx) => tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", ["social-media", `${STAFF}/${id()}.jpg`])), /row-level security/);
 });
+await test("members can upload only their own private profile photo", async () => {
+  const path = STAFF + "/" + id() + ".jpg";
+  await asUser(db, STAFF, (tx) =>
+    tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", [
+      "profile-avatars",
+      path,
+    ]),
+  );
+  await assert.rejects(
+    asUser(db, OWNER, (tx) =>
+      tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", [
+        "profile-avatars",
+        STAFF + "/" + id() + ".jpg",
+      ]),
+    ),
+    /row-level security/,
+  );
+  await assert.rejects(
+    asUser(db, OWNER, (tx) =>
+      tx.query("select set_my_avatar($1)", [path]),
+    ),
+    /Upload a profile photo first/,
+  );
+  const previous = await asUser(db, STAFF, (tx) =>
+    tx.query("select set_my_avatar($1) as previous", [path]),
+  );
+  assert.equal(previous.rows[0].previous, "");
+  assert.equal(
+    (await db.query("select avatar_path from profiles where id=$1", [STAFF]))
+      .rows[0].avatar_path,
+    path,
+  );
+  assert.equal(
+    (await asUser(db, OWNER, (tx) =>
+      tx.query("select count(*)::int as n from storage.objects where bucket_id='profile-avatars'"),
+    )).rows[0].n,
+    0,
+  );
+  await asUser(db, OWNER, (tx) =>
+    tx.query("delete from storage.objects where bucket_id='profile-avatars' and name=$1", [path]),
+  );
+  assert.equal(
+    (await db.query("select count(*)::int as n from storage.objects where name=$1", [path])).rows[0].n,
+    1,
+  );
+  await asUser(db, STAFF, (tx) =>
+    tx.query("select set_my_avatar('')"),
+  );
+  await asUser(db, STAFF, (tx) =>
+    tx.query("delete from storage.objects where bucket_id='profile-avatars' and name=$1", [path]),
+  );
+  assert.equal(
+    (await db.query("select count(*)::int as n from storage.objects where name=$1", [path])).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (await db.query("select avatar_path from profiles where id=$1", [STAFF]))
+      .rows[0].avatar_path,
+    "",
+  );
+});
 await test("cancelled orders retain invoices/payments and prohibit new receipts", async () => {
   await call("save_order", {
     ...update,
