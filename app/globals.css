@@ -249,6 +249,11 @@ p {
 .document-actions {
   gap: 20px;
 }
+.document-actions > .row > .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 39px;
+}
 .stack {
   display: flex;
   flex-direction: column;
