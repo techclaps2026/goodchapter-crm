@@ -2,6 +2,8 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { CommercialDocument } from "./types";
 import { dateLabel } from "./domain";
+import { invoiceUpiUri } from "./payment-qr";
+import QRCode from "qrcode";
 const value = (n: number) =>
   "INR " +
   Number(n).toLocaleString("en-IN", {
@@ -178,6 +180,29 @@ export async function buildDocumentPdf(d: CommercialDocument) {
   appendBlock("TERMS", d.terms);
   if (d.kind === "invoice")
     appendBlock("PAYMENT DETAILS", d.business.bank_details);
+  const upiUri = invoiceUpiUri(d);
+  if (upiUri) {
+    if (y + 52 > 270) {
+      pdf.addPage();
+      y = 25;
+    }
+    y += 6;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.text("PAY BY UPI", margin, y);
+    pdf.setFont("helvetica", "normal");
+    y += 4;
+    const qr = await QRCode.toDataURL(upiUri, { margin: 1, width: 240 });
+    pdf.addImage(qr, "PNG", margin, y, 34, 34);
+    pdf.text(d.business.upi_id, margin + 40, y + 9);
+    pdf.text(
+      "Enter the outstanding amount before paying.",
+      margin + 40,
+      y + 15,
+    );
+    pdf.text("Confirm payment with The Good Chapter.", margin + 40, y + 21);
+    y += 38;
+  }
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page);
     pdf.setTextColor(110, 103, 94);

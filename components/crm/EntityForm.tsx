@@ -98,9 +98,13 @@ export default function EntityForm({
   };
   const [v, setV] = useState<Values>({ ...defaults[kind], ...initial });
   const savedVendorId = useRef<string | null>(String(initial.id || "") || null);
+  const [vendorId, setVendorId] = useState(String(initial.id || ""));
   const [error, setError] = useState("");
-  const [catalogFile, setCatalogFile] = useState<File | null>(null);
+  const [catalogFiles, setCatalogFiles] = useState<File[]>([]);
   const [savingCatalog, setSavingCatalog] = useState(false);
+  const vendorCatalogs = s.vendor_catalogs.filter(
+    (catalog) => catalog.vendor_id === vendorId,
+  );
   const contact: Field[] = [
     { key: "name", label: "Contact name", required: true },
     { key: "organisation", label: "Organisation" },
@@ -280,16 +284,18 @@ export default function EntityForm({
         try {
           if (
             kind === "vendor" &&
-            catalogFile &&
-            (![
-              "application/pdf",
-              "image/jpeg",
-              "image/png",
-              "image/webp",
-            ].includes(catalogFile.type) ||
-              !catalogFile.size ||
-              catalogFile.size > 10 * 1024 * 1024 ||
-              catalogFile.name.length > 200)
+            catalogFiles.some(
+              (file) =>
+                ![
+                  "application/pdf",
+                  "image/jpeg",
+                  "image/png",
+                  "image/webp",
+                ].includes(file.type) ||
+                !file.size ||
+                file.size > 10 * 1024 * 1024 ||
+                file.name.length > 200,
+            )
           )
             throw new Error(
               "Choose a PDF, JPG, PNG or WebP catalogue up to 10 MB with a shorter filename",
@@ -302,8 +308,11 @@ export default function EntityForm({
           if (kind === "followup")
             payload.due_at = new Date(String(v.due_at)).toISOString();
           const r = await mutate(action, payload);
-          if (kind === "vendor") savedVendorId.current = r.id;
-          if (kind === "vendor" && catalogFile) {
+          if (kind === "vendor") {
+            savedVendorId.current = r.id;
+            setVendorId(r.id);
+          }
+          if (kind === "vendor" && catalogFiles.length) {
             setSavingCatalog(true);
             const extensions: Record<string, string> = {
               "application/pdf": "pdf",
@@ -311,42 +320,32 @@ export default function EntityForm({
               "image/png": "png",
               "image/webp": "webp",
             };
-            const extension = extensions[catalogFile.type];
-            if (
-              !extension ||
-              !catalogFile.size ||
-              catalogFile.size > 10 * 1024 * 1024
-            )
-              throw new Error(
-                "Choose a PDF, JPG, PNG or WebP catalogue up to 10 MB",
-              );
             const db = createClient();
             const bucket = db.storage.from("vendor-catalogs");
-            const path = `${r.id}/${crypto.randomUUID()}.${extension}`;
-            const { error: uploadError } = await bucket.upload(
-              path,
-              catalogFile,
-              {
-                contentType: catalogFile.type,
+            for (const file of catalogFiles) {
+              const path = `${r.id}/${crypto.randomUUID()}.${extensions[file.type]}`;
+              const { error: uploadError } = await bucket.upload(path, file, {
+                contentType: file.type,
                 upsert: false,
-              },
-            );
-            if (uploadError) throw uploadError;
-            const { data: previousPath, error: attachError } = await db.rpc(
-              "set_vendor_catalog",
-              {
-                p_vendor_id: r.id,
-                p_storage_path: path,
-                p_file_name: catalogFile.name,
-              },
-            );
-            if (attachError) {
-              await bucket.remove([path]);
-              throw attachError;
+              });
+              if (uploadError) throw uploadError;
+              const { error: attachError } = await db.rpc(
+                "add_vendor_catalog",
+                {
+                  p_vendor_id: r.id,
+                  p_storage_path: path,
+                  p_file_name: file.name,
+                },
+              );
+              if (attachError) {
+                await bucket.remove([path]);
+                throw attachError;
+              }
+              setCatalogFiles((pending) =>
+                pending.filter((item) => item !== file),
+              );
+              await refresh();
             }
-            if (previousPath && previousPath !== path)
-              await bucket.remove([previousPath]);
-            await refresh();
           }
           onDone(r.id);
         } catch (e) {
@@ -418,60 +417,76 @@ export default function EntityForm({
       {kind === "vendor" && (
         <div className="field-grid" style={{ marginTop: 16 }}>
           <label className="wide">
-            Catalogue (optional)
+            Catalogues (optional)
             <input
               type="file"
+              multiple
               accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
               onChange={(event) =>
-                setCatalogFile(event.target.files?.[0] ?? null)
+                setCatalogFiles(Array.from(event.target.files ?? []))
               }
             />
-            <small>PDF, JPG, PNG or WebP · up to 10 MB</small>
+            <small>Choose one or more PDFs or images · up to 10 MB each</small>
           </label>
-          {initial.id && initial.catalog_path && (
-            <div className="wide row" style={{ gap: 12, alignItems: "center" }}>
-              <a
-                className="text-link"
-                href={`/api/vendor-catalog?id=${initial.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View {String(initial.catalog_name || "catalogue")}
-              </a>
-              <button
-                type="button"
-                className="button small"
-                onClick={async () => {
-                  setError("");
-                  setSavingCatalog(true);
-                  try {
-                    const db = createClient();
-                    const { data: previousPath, error: removeError } =
-                      await db.rpc("set_vendor_catalog", {
-                        p_vendor_id: initial.id,
-                        p_storage_path: "",
-                        p_file_name: "",
-                      });
-                    if (removeError) throw removeError;
-                    if (previousPath)
-                      await db.storage
-                        .from("vendor-catalogs")
-                        .remove([previousPath]);
-                    await refresh();
-                    onDone(String(initial.id));
-                  } catch (cause) {
-                    setError(
-                      cause instanceof Error
-                        ? cause.message
-                        : "Could not remove catalogue",
-                    );
-                  } finally {
-                    setSavingCatalog(false);
-                  }
-                }}
-              >
-                Remove catalogue
-              </button>
+          {vendorCatalogs.length > 0 && (
+            <div className="wide" style={{ display: "grid", gap: 8 }}>
+              <strong>Attached catalogues</strong>
+              {vendorCatalogs.map((catalog) => (
+                <div
+                  className="row"
+                  key={catalog.id}
+                  style={{ gap: 12, alignItems: "center" }}
+                >
+                  <a
+                    className="text-link"
+                    href={`/api/vendor-catalog?catalogId=${catalog.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {catalog.file_name}
+                  </a>
+                  <button
+                    type="button"
+                    className="button small"
+                    disabled={savingCatalog || busy}
+                    onClick={async () => {
+                      setError("");
+                      setSavingCatalog(true);
+                      try {
+                        const db = createClient();
+                        const { data: path, error: removeError } = await db.rpc(
+                          "remove_vendor_catalog",
+                          { p_catalog_id: catalog.id },
+                        );
+                        if (removeError) throw removeError;
+                        if (path) {
+                          const { error: storageError } = await db.storage
+                            .from("vendor-catalogs")
+                            .remove([path]);
+                          if (storageError) throw storageError;
+                        }
+                      } catch (cause) {
+                        setError(
+                          cause instanceof Error
+                            ? cause.message
+                            : "Could not remove catalogue",
+                        );
+                      } finally {
+                        try {
+                          await refresh();
+                        } catch {
+                          setError(
+                            "Could not refresh catalogues. Reload the page to check the result.",
+                          );
+                        }
+                        setSavingCatalog(false);
+                      }
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

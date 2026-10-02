@@ -177,7 +177,6 @@ function entityValues(x: unknown) {
 }
 export default function CRM({
   section: serverSection,
-  recordId: serverRecordId,
 }: {
   section: string;
   recordId?: string;
@@ -191,7 +190,7 @@ export default function CRM({
       : serverSection
     : "dashboard";
   const recordId =
-    pathSection && titles[pathSection] ? pathRecordId : serverRecordId;
+    pathSection && titles[pathSection] ? pathRecordId : undefined;
   const { data: s, isLoading, error, mutate, busy, refresh } = useCRM();
   const [navOpen, setNavOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -199,6 +198,7 @@ export default function CRM({
   const [vendorLocation, setVendorLocation] = useState("All locations");
   const [form, setForm] = useState<FormState>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [qrBusy, setQrBusy] = useState(false);
   const [dueOn, setDueOn] = useState("");
   const [emailOpen, setEmailOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -350,7 +350,7 @@ export default function CRM({
       | "order",
     id: string,
     label: string,
-    catalogPath = "",
+    catalogPaths: string[] = [],
   ) =>
     canManageUsers(s.profile.role) ? (
       <button
@@ -366,10 +366,10 @@ export default function CRM({
             return;
           run(async () => {
             await mutate("delete_record", { kind, id });
-            if (catalogPath)
+            if (catalogPaths.length)
               await createClient()
                 .storage.from("vendor-catalogs")
-                .remove([catalogPath]);
+                .remove(catalogPaths);
             if (recordId === id) router.push(`/${section}`);
           });
         }}
@@ -668,7 +668,7 @@ export default function CRM({
             </div>
           </div>
           <div className="divider" />
-          <div className="row between">
+          <div className="row between document-actions">
             <div className="row">
               {doc.kind === "quote" && !accepted && (
                 <>
@@ -763,6 +763,43 @@ export default function CRM({
                     )}
                 </>
               )}
+              {doc.kind === "invoice" &&
+                doc.status !== "Superseded" &&
+                canManageUsers(s.profile.role) &&
+                (s.settings.upi_id || doc.payment_qr_enabled ? (
+                  <button
+                    className="button"
+                    disabled={qrBusy}
+                    onClick={() =>
+                      run(async () => {
+                        setQrBusy(true);
+                        try {
+                          const { error: qrError } = await createClient().rpc(
+                            "set_invoice_payment_qr",
+                            {
+                              p_invoice_id: doc.id,
+                              p_enabled: !doc.payment_qr_enabled,
+                            },
+                          );
+                          if (qrError) throw qrError;
+                          await refresh();
+                        } finally {
+                          setQrBusy(false);
+                        }
+                      })
+                    }
+                  >
+                    {qrBusy
+                      ? "Saving…"
+                      : doc.payment_qr_enabled
+                        ? "Remove payment QR"
+                        : "Add payment QR"}
+                  </button>
+                ) : (
+                  <Link className="text-link" href="/settings#payment-qr">
+                    Set up payment QR ↗
+                  </Link>
+                ))}
             </div>
             <div className="row">
               {doc.share_token ? (
@@ -794,13 +831,13 @@ export default function CRM({
                     className="button small"
                     href={`mailto:${doc.customer.email}?subject=${encodeURIComponent(doc.ref + " · " + doc.title)}&body=${encodeURIComponent("Your document: " + (typeof window !== "undefined" ? window.location.origin : "") + "/share/" + doc.share_token)}`}
                   >
-                    Email ↗
+                    Open email app ↗
                   </a>
                   <button
                     className="button small"
                     onClick={() => setEmailOpen(true)}
                   >
-                    Send with Resend
+                    Send email
                   </button>
                   <button
                     className="button small danger"
@@ -1208,7 +1245,7 @@ export default function CRM({
             "Speciality & products",
             "Contact",
             "Location",
-            "Catalogue",
+            "Catalogues",
             "",
           ],
           s.vendors
@@ -1231,23 +1268,34 @@ export default function CRM({
                 </small>
               </span>,
               v.city,
-              v.catalog_path ? (
-                <a
-                  key="catalog"
-                  className="text-link"
-                  href={`/api/vendor-catalog?id=${v.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View catalogue
-                </a>
-              ) : (
-                "—"
-              ),
+              <div key="catalogs" style={{ display: "grid", gap: 4 }}>
+                {s.vendor_catalogs.filter((c) => c.vendor_id === v.id).length
+                  ? s.vendor_catalogs
+                      .filter((c) => c.vendor_id === v.id)
+                      .map((catalog) => (
+                        <a
+                          key={catalog.id}
+                          className="text-link"
+                          href={`/api/vendor-catalog?catalogId=${catalog.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {catalog.file_name}
+                        </a>
+                      ))
+                  : "—"}
+              </div>,
               <div className="row" key="a">
                 {edit("vendor", v)}
                 {archive("vendor", v)}
-                {removeRecord("vendor", v.id, v.name, v.catalog_path)}
+                {removeRecord(
+                  "vendor",
+                  v.id,
+                  v.name,
+                  s.vendor_catalogs
+                    .filter((c) => c.vendor_id === v.id)
+                    .map((c) => c.storage_path),
+                )}
               </div>,
             ]),
           "No vendors yet",

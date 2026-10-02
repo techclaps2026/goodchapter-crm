@@ -13,6 +13,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import SocialConnections from "./SocialConnections";
 import BufferConnection from "./BufferConnection";
 import MailIntegration from "./MailIntegration";
+import { createClient } from "@/lib/supabase/client";
 export default function Settings({
   s,
   mutate,
@@ -27,6 +28,8 @@ export default function Settings({
   mode: "business" | "users";
 }) {
   const [v, setV] = useState(s.settings);
+  const [upiId, setUpiId] = useState(s.settings.upi_id);
+  const [savingUpi, setSavingUpi] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -156,6 +159,51 @@ export default function Settings({
               </button>
             </div>
           </form>
+          <form
+            className="panel stack"
+            id="payment-qr"
+            onSubmit={(event) => {
+              event.preventDefault();
+              run(async () => {
+                setSavingUpi(true);
+                try {
+                  const { error: saveError } = await createClient().rpc(
+                    "save_payment_upi",
+                    { p_upi_id: upiId },
+                  );
+                  if (saveError) throw saveError;
+                  await refresh();
+                } finally {
+                  setSavingUpi(false);
+                }
+              });
+            }}
+          >
+            <h2>Invoice payment QR</h2>
+            <p>
+              Enter the UPI ID shown in your Google Pay for Business account.
+              You can then add a QR to individual invoices.
+            </p>
+            <label>
+              Business UPI ID
+              <input
+                value={upiId}
+                onChange={(event) => setUpiId(event.target.value)}
+                placeholder="business@bank"
+                autoComplete="off"
+              />
+            </label>
+            <p className="muted">
+              QR payments must be confirmed in your payment account and recorded
+              in the CRM. Existing invoice QR codes keep the UPI ID saved when
+              they were added.
+            </p>
+            <div className="form-footer">
+              <button className="button primary" disabled={savingUpi}>
+                {savingUpi ? "Saving…" : "Save UPI ID"}
+              </button>
+            </div>
+          </form>
           <div className="panel">
             <h2>CRM defaults</h2>
             <dl className="kv" style={{ marginTop: 20 }}>
@@ -173,7 +221,10 @@ export default function Settings({
           <MailIntegration role={s.profile.role} demo={s.demo} />
           <details className="panel">
             <summary>Direct developer app connections · advanced</summary>
-            <p style={{ margin: "12px 0" }}>Only needed if you later register your own Instagram or LinkedIn developer apps. Buffer publishing uses the connection above.</p>
+            <p style={{ margin: "12px 0" }}>
+              Only needed if you later register your own Instagram or LinkedIn
+              developer apps. Buffer publishing uses the connection above.
+            </p>
             <SocialConnections role={s.profile.role} />
           </details>
         </div>

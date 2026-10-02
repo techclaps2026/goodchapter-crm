@@ -70,7 +70,7 @@ export default function SendEmail({
         className="button primary"
         disabled={busy || demo || !doc.customer.email}
       >
-        {busy ? "Sending…" : "Send with Resend"}
+        {busy ? "Sending…" : "Send email"}
       </button>
     </form>
   );

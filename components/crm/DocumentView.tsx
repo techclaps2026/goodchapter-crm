@@ -3,6 +3,7 @@
 import type { CommercialDocument } from "@/lib/types";
 import { dateLabel, money } from "@/lib/domain";
 import { Totals } from "./shared";
+import PaymentQr from "./PaymentQr";
 export default function DocumentView({ doc: d }: { doc: CommercialDocument }) {
   return (
     <article className="document">
@@ -108,6 +109,7 @@ export default function DocumentView({ doc: d }: { doc: CommercialDocument }) {
           <p style={{ marginTop: 9 }}>{d.business.bank_details}</p>
         </>
       )}
+      {d.kind === "invoice" && d.payment_qr_enabled && <PaymentQr doc={d} />}
     </article>
   );
 }

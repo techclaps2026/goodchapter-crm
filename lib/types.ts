@@ -25,6 +25,7 @@ export interface Settings {
   gstin: string;
   logo_url: string;
   bank_details: string;
+  upi_id: string;
   terms: string;
 }
 export interface Client {
@@ -80,6 +81,13 @@ export interface Vendor {
   catalog_path: string;
   catalog_name: string;
 }
+export interface VendorCatalog {
+  id: string;
+  vendor_id: string;
+  storage_path: string;
+  file_name: string;
+  created_at: string;
+}
 export interface LineInput {
   description: string;
   quantity: number;
@@ -118,6 +126,7 @@ export interface CommercialDocument {
   terms: string;
   revision_of: string | null;
   share_token: string | null;
+  payment_qr_enabled: boolean;
   created_at: string;
 }
 export interface Order {
@@ -179,6 +188,7 @@ export interface Snapshot {
   clients: Client[];
   products: Product[];
   vendors: Vendor[];
+  vendor_catalogs: VendorCatalog[];
   documents: CommercialDocument[];
   orders: Order[];
   artwork: Artwork[];

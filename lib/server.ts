@@ -13,6 +13,7 @@ const tables = [
   "leads",
   "products",
   "vendors",
+  "vendor_catalogs",
   "documents",
   "orders",
   "order_vendors",

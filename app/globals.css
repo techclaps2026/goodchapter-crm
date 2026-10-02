@@ -242,6 +242,13 @@ p {
 .between {
   justify-content: space-between;
 }
+.document-actions,
+.document-actions > .row {
+  align-items: flex-end;
+}
+.document-actions {
+  gap: 20px;
+}
 .stack {
   display: flex;
   flex-direction: column;
@@ -1141,6 +1148,23 @@ tr.clickable:hover {
   gap: 25px;
   margin: 24px 0;
 }
+.invoice-payment-qr {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.invoice-payment-qr p {
+  margin: 7px 0;
+}
+.invoice-payment-qr img {
+  width: 150px;
+  height: 150px;
+  max-width: none;
+}
 .share-page {
   max-width: 1000px;
   padding: 32px 20px;
@@ -1238,6 +1262,9 @@ tr.clickable:hover {
   }
   .document .doc-columns {
     grid-template-columns: 1fr;
+  }
+  .invoice-payment-qr {
+    flex-wrap: wrap;
   }
   .note-band .serif {
     font-size: 21px;

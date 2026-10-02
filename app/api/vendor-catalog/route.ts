@@ -10,20 +10,25 @@ export async function GET(request: Request) {
     await session();
     if (demoEnabled())
       return new Response("Catalogue unavailable in preview", { status: 404 });
-    const id = new URL(request.url).searchParams.get("id");
+    const params = new URL(request.url).searchParams;
+    const catalogId = params.get("catalogId");
+    const vendorId = params.get("id");
+    const id = catalogId || vendorId;
     if (!id || !/^[0-9a-f-]{36}$/i.test(id))
-      return new Response("Invalid vendor", { status: 400 });
+      return new Response("Invalid catalogue", { status: 400 });
     const db = await createClient();
-    const { data: vendor, error } = await db
-      .from("vendors")
-      .select("catalog_path")
-      .eq("id", id)
-      .single();
-    if (error || !vendor?.catalog_path)
+    const query = db.from("vendor_catalogs").select("storage_path");
+    const { data: catalog, error } = await (
+      catalogId ? query.eq("id", catalogId) : query.eq("vendor_id", vendorId!)
+    )
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error || !catalog?.storage_path)
       return new Response("Catalogue not found", { status: 404 });
     const { data, error: linkError } = await db.storage
       .from("vendor-catalogs")
-      .createSignedUrl(vendor.catalog_path, 60);
+      .createSignedUrl(catalog.storage_path, 60);
     if (linkError || !data?.signedUrl)
       return new Response("Catalogue unavailable", { status: 404 });
     return NextResponse.redirect(data.signedUrl, {

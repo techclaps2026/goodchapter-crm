@@ -396,13 +396,13 @@ if (apply) {
   ]) {
     const vendorId = sample.vendor.id;
     const path = `${vendorId}/${uid(`catalog:${sample.vendor.label}`)}.pdf`;
-    const { data: vendor, error } = await db
-      .from("vendors")
-      .select("catalog_path")
-      .eq("id", vendorId)
-      .single();
+    const { data: catalog, error } = await db
+      .from("vendor_catalogs")
+      .select("id")
+      .eq("storage_path", path)
+      .maybeSingle();
     if (error) throw error;
-    if (vendor.catalog_path) continue;
+    if (catalog) continue;
     const pdf = new jsPDF();
     pdf.setFontSize(18);
     pdf.text(sample.title, 20, 28);
@@ -419,9 +419,8 @@ if (apply) {
     if (uploadError && !/already exists/i.test(uploadError.message))
       throw uploadError;
     const { error: updateError } = await db
-      .from("vendors")
-      .update({ catalog_path: path, catalog_name: `${sample.title}.pdf` })
-      .eq("id", vendorId);
+      .from("vendor_catalogs")
+      .insert({ vendor_id: vendorId, storage_path: path, file_name: `${sample.title}.pdf` });
     if (updateError) throw updateError;
     created.push(`catalogue: ${sample.title}.pdf`);
   }

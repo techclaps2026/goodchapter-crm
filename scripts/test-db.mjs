@@ -966,6 +966,50 @@ await test("vendor products and private catalogue require a real upload", async 
     tx.query("select set_vendor_catalog($1,'','')", [vendorId])
   );
   assert.equal((await db.query("select catalog_path from vendors where id=$1", [vendorId])).rows[0].catalog_path, "");
+  const pdfPath = `${vendorId}/${id()}.pdf`;
+  const imagePath = `${vendorId}/${id()}.png`;
+  await db.query("insert into storage.objects(bucket_id,name) values('vendor-catalogs',$1),('vendor-catalogs',$2)", [pdfPath, imagePath]);
+  const first = (await asUser(db, OWNER, (tx) =>
+    tx.query("select add_vendor_catalog($1,$2,$3) as id", [vendorId, pdfPath, "Lookbook.pdf"])
+  )).rows[0].id;
+  const second = (await asUser(db, OWNER, (tx) =>
+    tx.query("select add_vendor_catalog($1,$2,$3) as id", [vendorId, imagePath, "Pricing.png"])
+  )).rows[0].id;
+  assert.equal((await asUser(db, OWNER, (tx) =>
+    tx.query("select * from vendor_catalogs where vendor_id=$1", [vendorId])
+  )).rows.length, 2);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("select add_vendor_catalog($1,$2,$3)", [id(), pdfPath, "Wrong vendor.pdf"])
+  ), /Vendor not found/);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("select add_vendor_catalog($1,$2,$3)", [vendorId, `${id()}/${id()}.pdf`, "Wrong folder.pdf"])
+  ), /Upload a valid catalogue first/);
+  const removed = (await asUser(db, OWNER, (tx) =>
+    tx.query("select remove_vendor_catalog($1) as path", [first])
+  )).rows[0].path;
+  assert.equal(removed, pdfPath);
+  assert.deepEqual((await db.query("select id from vendor_catalogs where vendor_id=$1", [vendorId])).rows.map((row) => row.id), [second]);
+});
+await test("invoice QR requires a configured UPI ID and manager access", async () => {
+  const invoice = (await db.query("select id from documents where kind='invoice' and status in ('Draft','Issued') limit 1")).rows[0];
+  assert.ok(invoice);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("select set_invoice_payment_qr($1,true)", [invoice.id])
+  ), /Add a business UPI ID/);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("select save_payment_upi($1)", ["not-a-upi-id"])
+  ), /valid business UPI ID/);
+  await asUser(db, OWNER, (tx) => tx.query("select save_payment_upi($1)", ["  GoodChapter@okbizaxis  "]));
+  await db.query("update profiles set active=true where id=$1", [STAFF]);
+  await assert.rejects(asUser(db, STAFF, (tx) =>
+    tx.query("select set_invoice_payment_qr($1,true)", [invoice.id])
+  ), /Owner or Admin access required/);
+  await asUser(db, OWNER, (tx) => tx.query("select set_invoice_payment_qr($1,true)", [invoice.id]));
+  const row = (await db.query("select payment_qr_enabled,business->>'upi_id' as upi_id from documents where id=$1", [invoice.id])).rows[0];
+  assert.equal(row.payment_qr_enabled, true);
+  assert.equal(row.upi_id, "goodchapter@okbizaxis");
+  await asUser(db, OWNER, (tx) => tx.query("select set_invoice_payment_qr($1,false)", [invoice.id]));
+  assert.equal((await db.query("select payment_qr_enabled from documents where id=$1", [invoice.id])).rows[0].payment_qr_enabled, false);
 });
 await test("only Owner/Admin may edit payments or delete records", async () => {
   await db.query("update profiles set active=true where id=$1", [STAFF]);
