@@ -1308,6 +1308,14 @@ tr.clickable:hover {
     grid-template-columns: 100px 1fr;
   }
 }
+/* iOS zooms the page when a focused form field renders below 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
 @media print {
   body {
     background: white;
