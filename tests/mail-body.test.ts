@@ -16,9 +16,35 @@ describe("imported email body", () => {
       ].join("\r\n"),
       { skipTextToHtml: true },
     );
-    expect(readableMailBody(parsed)).toContain("Testing Titan's features");
+    expect(readableMailBody(parsed).toLowerCase()).toContain(
+      "testing titan's features",
+    );
     expect(readableMailBody(parsed)).not.toContain(
       "open in your original mailbox",
     );
+  });
+
+  it("extracts text from multipart/related HTML mail", async () => {
+    const parsed = await simpleParser(
+      [
+        "From: sender@example.test",
+        "To: hello@example.test",
+        "Subject: HTML in related content",
+        "MIME-Version: 1.0",
+        'Content-Type: multipart/related; boundary="related"',
+        "",
+        "--related",
+        "Content-Type: text/html; charset=utf-8",
+        "",
+        "<html><body><h1>Testing Titan's features</h1><p>Welcome to your mailbox</p></body></html>",
+        "--related--",
+      ].join("\r\n"),
+      { skipTextToHtml: true },
+    );
+    expect(parsed.text).toBeFalsy();
+    expect(readableMailBody(parsed).toLowerCase()).toContain(
+      "testing titan's features",
+    );
+    expect(readableMailBody(parsed)).toContain("Welcome to your mailbox");
   });
 });

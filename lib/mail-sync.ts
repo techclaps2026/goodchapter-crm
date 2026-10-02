@@ -3,7 +3,11 @@ import { simpleParser } from "mailparser";
 import { mailAdmin } from "@/lib/supabase/mail-admin";
 import { decryptToken } from "@/lib/social/providers";
 import { imapClient } from "@/lib/mail-imap";
-import { legacyHtmlPlaceholder, readableMailBody } from "@/lib/mail-body";
+import {
+  legacyHtmlPlaceholder,
+  legacyUnreadableFallback,
+  readableMailBody,
+} from "@/lib/mail-body";
 
 export async function syncMailbox(folder: "inbox" | "sent") {
   const db = mailAdmin();
@@ -73,8 +77,12 @@ export async function syncMailbox(folder: "inbox" | "sent") {
           folder === "sent"
             ? `imap:${credentials.email}:${mailboxPath}:${mailbox.uidValidity}:${message.uid}`
             : `imap:${credentials.email}:${mailbox.uidValidity}:${message.uid}`;
+        const storedBody = known.get(id);
+        const needsBodyRepair =
+          storedBody === legacyHtmlPlaceholder ||
+          storedBody === legacyUnreadableFallback;
         if (
-          (known.has(id) && known.get(id) !== legacyHtmlPlaceholder) ||
+          (known.has(id) && !needsBodyRepair) ||
           (message.size || 0) > 1024 * 1024 * 5
         )
           continue;
