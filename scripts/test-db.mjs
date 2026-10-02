@@ -937,5 +937,54 @@ await test("imported sent mail is private and deduplicated", async () => {
     /permission denied/,
   );
 });
+await test("vendor products and private catalogue require a real upload", async () => {
+  const vendorId = (await call("save_vendor", {
+    name: "Example apparel maker", category: "Apparel",
+    subcategories: "Hoodies, varsity jackets, T-shirts, sweatshirts",
+    contact_name: "", email: "", phone: "", city: "Delhi NCR", notes: "",
+  })).id;
+  const saved = (await asUser(db, OWNER, (tx) =>
+    tx.query("select subcategories,city,catalog_path from vendors where id=$1", [vendorId])
+  )).rows[0];
+  assert.match(saved.subcategories, /Hoodies/);
+  assert.equal(saved.city, "Delhi NCR");
+  assert.equal(saved.catalog_path, "");
+  const path = `${vendorId}/${id()}.pdf`;
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("select set_vendor_catalog($1,$2,$3)", [vendorId, path, "example.pdf"])
+  ), /Upload a valid catalogue first/);
+  await db.query("insert into storage.objects(bucket_id,name) values('vendor-catalogs',$1)", [path]);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("select set_vendor_catalog($1,$2,$3)", [id(), path, "example.pdf"])
+  ), /Vendor not found/);
+  const previous = await asUser(db, OWNER, (tx) =>
+    tx.query("select set_vendor_catalog($1,$2,$3) as old", [vendorId, path, "example.pdf"])
+  );
+  assert.equal(previous.rows[0].old, "");
+  assert.equal((await db.query("select catalog_name from vendors where id=$1", [vendorId])).rows[0].catalog_name, "example.pdf");
+  await asUser(db, OWNER, (tx) =>
+    tx.query("select set_vendor_catalog($1,'','')", [vendorId])
+  );
+  assert.equal((await db.query("select catalog_path from vendors where id=$1", [vendorId])).rows[0].catalog_path, "");
+});
+await test("only Owner/Admin may edit payments or delete records", async () => {
+  await db.query("update profiles set active=true where id=$1", [STAFF]);
+  const payment = (await db.query("select * from payments where kind='Receipt' limit 1")).rows[0];
+  assert.ok(payment);
+  const changes = { id: payment.id, order_id: payment.order_id, kind: payment.kind,
+    amount: 321, method: "UPI", payment_date: "2026-10-03",
+    reference: "TEST-EDIT", notes: "Corrected entry" };
+  await assert.rejects(call("update_payment", changes, id(), STAFF), /Owner or Admin/);
+  await call("update_payment", changes);
+  assert.equal((await db.query("select reference from payments where id=$1", [payment.id])).rows[0].reference, "TEST-EDIT");
+  await assert.rejects(call("delete_record", { kind: "payment", id: payment.id }, id(), STAFF), /Owner or Admin/);
+  await assert.rejects(call("delete_record", { kind: "quote", id: quote }), /Remove linked/);
+  const spareVendor = (await call("save_vendor", {
+    name: "Temporary maker", category: "Apparel", contact_name: "",
+    email: "", phone: "", city: "Delhi NCR", notes: "",
+  })).id;
+  await call("delete_record", { kind: "vendor", id: spareVendor });
+  assert.equal((await db.query("select count(*)::int n from vendors where id=$1", [spareVendor])).rows[0].n, 0);
+});
 console.log(`${passed} database scenarios passed`);
 await db.close();

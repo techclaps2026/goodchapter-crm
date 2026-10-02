@@ -70,12 +70,15 @@ export interface Vendor {
   id: string;
   name: string;
   category: string;
+  subcategories: string;
   contact_name: string;
   email: string;
   phone: string;
   city: string;
   notes: string;
   archived: boolean;
+  catalog_path: string;
+  catalog_name: string;
 }
 export interface LineInput {
   description: string;

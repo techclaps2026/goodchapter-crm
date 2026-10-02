@@ -48,6 +48,8 @@ import InvoiceGenerator from "./InvoiceGenerator";
 import SendEmail from "./SendEmail";
 import SocialMedia from "./SocialMedia";
 import MailCenter from "./MailCenter";
+import { matchesVendor } from "@/lib/vendor-search";
+import { createClient } from "@/lib/supabase/client";
 import CrmLoading from "./CrmLoading";
 import {
   money,
@@ -80,7 +82,6 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
     group: "OPERATIONS",
     items: [
       ["orders", "Orders", Package],
-      ["products", "Products", Gift],
       ["vendors", "Vendors", Building2],
     ],
   },
@@ -94,7 +95,10 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
   },
   {
     group: "COMMUNICATION",
-    items: [["social", "Social Media", Share2], ["mail", "Mail center", Mail]],
+    items: [
+      ["social", "Social Media", Share2],
+      ["mail", "Mail center", Mail],
+    ],
   },
   {
     group: "MANAGE",
@@ -105,9 +109,12 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
     ],
   },
 ];
-const titles = Object.fromEntries(
-  NAV.flatMap((g) => g.items.map(([id, title]) => [id, title])),
-);
+const titles: Record<string, string> = {
+  products: "Products", // Existing product links still resolve; only the menu item is hidden.
+  ...Object.fromEntries(
+    NAV.flatMap((g) => g.items.map(([id, title]) => [id, title])),
+  ),
+};
 const descriptions: Record<string, string> = {
   dashboard: "A little clarity for everything you’re creating.",
   leads: "Good conversations. Great possibilities.",
@@ -189,6 +196,7 @@ export default function CRM({
   const [navOpen, setNavOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+  const [vendorLocation, setVendorLocation] = useState("All locations");
   const [form, setForm] = useState<FormState>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [dueOn, setDueOn] = useState("");
@@ -234,6 +242,7 @@ export default function CRM({
     event.preventDefault();
     setSearch("");
     setFilter("All");
+    setVendorLocation("All locations");
     setForm(null);
     setEmailOpen(false);
     setInvoiceOpen(false);
@@ -294,23 +303,80 @@ export default function CRM({
       className="button small"
       disabled={busy}
       onClick={() =>
-        run(() =>
-          mutate(`save_${kind}` as Action, {
-            ...s[
-              kind === "client"
-                ? "clients"
-                : kind === "product"
-                  ? "products"
-                  : "vendors"
-            ].find((i) => i.id === item.id),
-            archived: !item.archived,
-          }),
-        )
+        run(() => {
+          const source = s[
+            kind === "client"
+              ? "clients"
+              : kind === "product"
+                ? "products"
+                : "vendors"
+          ].find((i) => i.id === item.id);
+          if (!source) throw new Error("Record not found");
+          const payload =
+            kind === "vendor"
+              ? (() => {
+                  const v = source as (typeof s.vendors)[number];
+                  return {
+                    id: v.id,
+                    name: v.name,
+                    category: v.category,
+                    subcategories: v.subcategories,
+                    contact_name: v.contact_name,
+                    email: v.email,
+                    phone: v.phone,
+                    city: v.city,
+                    notes: v.notes,
+                    archived: !v.archived,
+                  };
+                })()
+              : { ...source, archived: !item.archived };
+          return mutate(`save_${kind}` as Action, payload);
+        })
       }
     >
       {item.archived ? "Restore" : "Archive"}
     </button>
   );
+  const removeRecord = (
+    kind:
+      | "client"
+      | "lead"
+      | "product"
+      | "vendor"
+      | "followup"
+      | "payment"
+      | "quote"
+      | "invoice"
+      | "order",
+    id: string,
+    label: string,
+    catalogPath = "",
+  ) =>
+    canManageUsers(s.profile.role) ? (
+      <button
+        key="delete"
+        className="button small danger"
+        disabled={busy}
+        onClick={() => {
+          if (
+            !window.confirm(
+              `Permanently delete ${label}? Linked records must be removed first. This cannot be undone.`,
+            )
+          )
+            return;
+          run(async () => {
+            await mutate("delete_record", { kind, id });
+            if (catalogPath)
+              await createClient()
+                .storage.from("vendor-catalogs")
+                .remove([catalogPath]);
+            if (recordId === id) router.push(`/${section}`);
+          });
+        }}
+      >
+        Delete
+      </button>
+    ) : null;
   const clientName = (id: string | null) =>
     s.clients.find((c) => c.id === id)?.organisation ||
     s.clients.find((c) => c.id === id)?.name ||
@@ -396,13 +462,15 @@ export default function CRM({
           ]
         : []),
       dateLabel(d.kind === "quote" ? d.valid_until : d.due_on),
-      <Link
-        key="open"
-        className="button small"
-        href={`/${d.kind === "quote" ? "quotations" : "invoices"}/${d.id}`}
-      >
-        Open <ArrowUpRight size={13} />
-      </Link>,
+      <div className="row" key="actions">
+        <Link
+          className="button small"
+          href={`/${d.kind === "quote" ? "quotations" : "invoices"}/${d.id}`}
+        >
+          Open <ArrowUpRight size={13} />
+        </Link>
+        {removeRecord(d.kind, d.id, d.ref)}
+      </div>,
     ]);
   const formDone = (id: string) => {
     const kind = form?.kind;
@@ -457,12 +525,30 @@ export default function CRM({
         <Search />
         <input
           aria-label={`Search ${titles[section]}`}
-          placeholder={`Search ${titles[section].toLowerCase()}…`}
+          placeholder={
+            section === "vendors"
+              ? "Search vendor or product, e.g. diary…"
+              : `Search ${titles[section].toLowerCase()}…`
+          }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
       <div className="row">
+        {section === "vendors" && (
+          <select
+            aria-label="Filter vendor location"
+            value={vendorLocation}
+            onChange={(event) => setVendorLocation(event.target.value)}
+          >
+            <option>All locations</option>
+            {[...new Set(s.vendors.map((v) => v.city.trim()).filter(Boolean))]
+              .sort((a, b) => a.localeCompare(b))
+              .map((city) => (
+                <option key={city}>{city}</option>
+              ))}
+          </select>
+        )}
         {statuses.length > 0 && (
           <select
             aria-label="Filter status"
@@ -909,6 +995,7 @@ export default function CRM({
               person(l.assigned_to),
               <div className="row" key="a">
                 {edit("lead", l)}
+                {removeRecord("lead", l.id, l.name)}
                 {l.client_id ? (
                   <Link
                     className="button small"
@@ -964,6 +1051,7 @@ export default function CRM({
               <div className="row" key="a">
                 {edit("client", c)}
                 {archive("client", c)}
+                {removeRecord("client", c.id, c.name)}
               </div>,
             ]),
           "No clients yet",
@@ -1016,7 +1104,15 @@ export default function CRM({
       <>
         {toolbar(ORDER_STAGES)}
         {table(
-          ["Order", "Client", "Stage", "Delivery deadline", "Value", "Balance"],
+          [
+            "Order",
+            "Client",
+            "Stage",
+            "Delivery deadline",
+            "Value",
+            "Balance",
+            "",
+          ],
           s.orders
             .filter(matches)
             .filter((o) => filter === "All" || o.status === filter)
@@ -1027,6 +1123,7 @@ export default function CRM({
               dateLabel(o.required_date),
               money(orderMoney(s, o.id).total),
               money(orderMoney(s, o.id).balance),
+              removeRecord("order", o.id, o.ref),
             ]),
           "No orders yet",
         )}
@@ -1087,6 +1184,7 @@ export default function CRM({
                       {edit("product", p)}
                     </div>
                     <div style={{ marginTop: 10 }}>{archive("product", p)}</div>
+                    {removeRecord("product", p.id, p.name)}
                   </div>
                 </article>
               );
@@ -1105,13 +1203,27 @@ export default function CRM({
       <>
         {toolbar(["Active", "Archived"])}
         {table(
-          ["Vendor", "Speciality", "Contact", "City", ""],
+          [
+            "Vendor",
+            "Speciality & products",
+            "Contact",
+            "Location",
+            "Catalogue",
+            "",
+          ],
           s.vendors
-            .filter(matches)
+            .filter((v) => matchesVendor(v, search))
             .filter((v) => (filter === "Archived" ? v.archived : !v.archived))
+            .filter(
+              (v) =>
+                vendorLocation === "All locations" || v.city === vendorLocation,
+            )
             .map((v) => [
               <strong key="n">{v.name}</strong>,
-              v.category,
+              <span key="speciality">
+                {v.category}
+                <small>{v.subcategories || "—"}</small>
+              </span>,
               <span key="c">
                 {v.contact_name}
                 <small>
@@ -1119,9 +1231,23 @@ export default function CRM({
                 </small>
               </span>,
               v.city,
+              v.catalog_path ? (
+                <a
+                  key="catalog"
+                  className="text-link"
+                  href={`/api/vendor-catalog?id=${v.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View catalogue
+                </a>
+              ) : (
+                "—"
+              ),
               <div className="row" key="a">
                 {edit("vendor", v)}
                 {archive("vendor", v)}
+                {removeRecord("vendor", v.id, v.name, v.catalog_path)}
               </div>,
             ]),
           "No vendors yet",
@@ -1185,15 +1311,18 @@ export default function CRM({
               </span>,
               person(f.assigned_to),
               <Badge key="p">{f.priority}</Badge>,
-              edit("followup", {
-                ...f,
-                due_at: new Date(
-                  new Date(f.due_at).getTime() -
-                    new Date(f.due_at).getTimezoneOffset() * 60000,
-                )
-                  .toISOString()
-                  .slice(0, 16),
-              }),
+              <div className="row" key="actions">
+                {edit("followup", {
+                  ...f,
+                  due_at: new Date(
+                    new Date(f.due_at).getTime() -
+                      new Date(f.due_at).getTimezoneOffset() * 60000,
+                  )
+                    .toISOString()
+                    .slice(0, 16),
+                })}
+                {removeRecord("followup", f.id, f.title)}
+              </div>,
             ]),
           "Nothing to follow up",
         )}
@@ -1204,7 +1333,7 @@ export default function CRM({
       <>
         {toolbar(["Receipt", "Refund"])}
         {table(
-          ["Date", "Order", "Entry", "Amount", "Method", "Reference"],
+          ["Date", "Order", "Entry", "Amount", "Method", "Reference", ""],
           s.payments
             .filter(matches)
             .filter((p) => filter === "All" || p.kind === filter)
@@ -1219,14 +1348,26 @@ export default function CRM({
               money(p.amount),
               p.method,
               p.reference || "—",
+              canManageUsers(s.profile.role) ? (
+                <div className="row" key="actions">
+                  {edit("payment", p)}
+                  {removeRecord("payment", p.id, p.reference || "this payment")}
+                </div>
+              ) : null,
             ]),
           "No payments recorded",
         )}
       </>
     );
   else if (section === "reports") body = <Reports s={s} />;
-  else if (section === "social") body = <SocialMedia role={s.profile.role} userId={s.profile.id} demo={s.demo} />;
-  else if (section === "mail") body = <MailCenter clients={s.clients} role={s.profile.role} demo={s.demo} />;
+  else if (section === "social")
+    body = (
+      <SocialMedia role={s.profile.role} userId={s.profile.id} demo={s.demo} />
+    );
+  else if (section === "mail")
+    body = (
+      <MailCenter clients={s.clients} role={s.profile.role} demo={s.demo} />
+    );
   else if (section === "account")
     body = <AccountSettings s={s} refresh={refresh} />;
   else
@@ -1293,7 +1434,10 @@ export default function CRM({
             <span className="avatar">
               {s.profile.avatar_path ? (
                 <img
-                  src={"/api/profile/avatar?v=" + encodeURIComponent(s.profile.avatar_path)}
+                  src={
+                    "/api/profile/avatar?v=" +
+                    encodeURIComponent(s.profile.avatar_path)
+                  }
                   alt=""
                 />
               ) : (
@@ -1458,6 +1602,7 @@ export default function CRM({
               initial={form.initial}
               s={s}
               mutate={mutate}
+              refresh={refresh}
               busy={busy}
               onDone={formDone}
             />

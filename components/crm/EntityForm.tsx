@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Snapshot } from "@/lib/types";
 import { CATEGORIES, LEAD_STAGES, hasOwnerAccess } from "@/lib/types";
 import type { Action } from "@/lib/validation";
 import type { Mutate } from "./use-crm";
 import { today } from "@/lib/domain";
+import { createClient } from "@/lib/supabase/client";
 export type EntityKind =
   "lead" | "client" | "product" | "vendor" | "followup" | "payment";
 type Values = Record<string, string | number | boolean | null>;
@@ -15,6 +16,7 @@ type Field = {
   options?: { value: string; label: string }[];
   required?: boolean;
   wide?: boolean;
+  placeholder?: string;
 };
 const options = (a: string[]) => a.map((value) => ({ value, label: value }));
 export default function EntityForm({
@@ -22,6 +24,7 @@ export default function EntityForm({
   initial = {},
   s,
   mutate,
+  refresh,
   onDone,
   busy,
 }: {
@@ -29,6 +32,7 @@ export default function EntityForm({
   initial?: Values;
   s: Snapshot;
   mutate: Mutate;
+  refresh: () => Promise<unknown>;
   onDone: (id: string) => void;
   busy: boolean;
 }) {
@@ -64,6 +68,7 @@ export default function EntityForm({
     vendor: {
       name: "",
       category: "Apparel",
+      subcategories: "",
       contact_name: "",
       email: "",
       phone: "",
@@ -92,7 +97,10 @@ export default function EntityForm({
     },
   };
   const [v, setV] = useState<Values>({ ...defaults[kind], ...initial });
+  const savedVendorId = useRef<string | null>(String(initial.id || "") || null);
   const [error, setError] = useState("");
+  const [catalogFile, setCatalogFile] = useState<File | null>(null);
+  const [savingCatalog, setSavingCatalog] = useState(false);
   const contact: Field[] = [
     { key: "name", label: "Contact name", required: true },
     { key: "organisation", label: "Organisation" },
@@ -177,8 +185,15 @@ export default function EntityForm({
     vendor: [
       { key: "name", label: "Vendor name", required: true },
       { key: "category", label: "Speciality", options: options(CATEGORIES) },
+      {
+        key: "subcategories",
+        label: "Products / subcategories (optional)",
+        type: "textarea",
+        wide: true,
+        placeholder: "Hoodies, varsity jackets, T-shirts, sweatshirts",
+      },
       { key: "contact_name", label: "Contact person" },
-      { key: "city", label: "City" },
+      { key: "city", label: "Location (city or region)" },
       { key: "email", label: "Email", type: "email" },
       { key: "phone", label: "Phone" },
       {
@@ -251,7 +266,11 @@ export default function EntityForm({
     ],
   };
   const action = (
-    kind === "payment" ? "log_payment" : `save_${kind}`
+    kind === "payment"
+      ? initial.id
+        ? "update_payment"
+        : "log_payment"
+      : `save_${kind}`
   ) as Action;
   return (
     <form
@@ -259,15 +278,81 @@ export default function EntityForm({
         e.preventDefault();
         setError("");
         try {
+          if (
+            kind === "vendor" &&
+            catalogFile &&
+            (![
+              "application/pdf",
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+            ].includes(catalogFile.type) ||
+              !catalogFile.size ||
+              catalogFile.size > 10 * 1024 * 1024 ||
+              catalogFile.name.length > 200)
+          )
+            throw new Error(
+              "Choose a PDF, JPG, PNG or WebP catalogue up to 10 MB with a shorter filename",
+            );
           const payload: Values = {};
           Object.keys(defaults[kind]).forEach((k) => (payload[k] = v[k]));
-          if (initial.id) payload.id = initial.id;
+          if (kind === "vendor" && savedVendorId.current)
+            payload.id = savedVendorId.current;
+          else if (initial.id) payload.id = initial.id;
           if (kind === "followup")
             payload.due_at = new Date(String(v.due_at)).toISOString();
           const r = await mutate(action, payload);
+          if (kind === "vendor") savedVendorId.current = r.id;
+          if (kind === "vendor" && catalogFile) {
+            setSavingCatalog(true);
+            const extensions: Record<string, string> = {
+              "application/pdf": "pdf",
+              "image/jpeg": "jpg",
+              "image/png": "png",
+              "image/webp": "webp",
+            };
+            const extension = extensions[catalogFile.type];
+            if (
+              !extension ||
+              !catalogFile.size ||
+              catalogFile.size > 10 * 1024 * 1024
+            )
+              throw new Error(
+                "Choose a PDF, JPG, PNG or WebP catalogue up to 10 MB",
+              );
+            const db = createClient();
+            const bucket = db.storage.from("vendor-catalogs");
+            const path = `${r.id}/${crypto.randomUUID()}.${extension}`;
+            const { error: uploadError } = await bucket.upload(
+              path,
+              catalogFile,
+              {
+                contentType: catalogFile.type,
+                upsert: false,
+              },
+            );
+            if (uploadError) throw uploadError;
+            const { data: previousPath, error: attachError } = await db.rpc(
+              "set_vendor_catalog",
+              {
+                p_vendor_id: r.id,
+                p_storage_path: path,
+                p_file_name: catalogFile.name,
+              },
+            );
+            if (attachError) {
+              await bucket.remove([path]);
+              throw attachError;
+            }
+            if (previousPath && previousPath !== path)
+              await bucket.remove([previousPath]);
+            await refresh();
+          }
           onDone(r.id);
         } catch (e) {
           setError(e instanceof Error ? e.message : "Could not save");
+        } finally {
+          setSavingCatalog(false);
         }
       }}
     >
@@ -278,6 +363,11 @@ export default function EntityForm({
             {f.options ? (
               <select
                 value={String(v[f.key] ?? "")}
+                disabled={
+                  kind === "payment" &&
+                  !!initial.id &&
+                  (f.key === "order_id" || f.key === "kind")
+                }
                 required={f.required}
                 onChange={(e) =>
                   setV({ ...v, [f.key]: e.target.value || null })
@@ -292,6 +382,7 @@ export default function EntityForm({
               </select>
             ) : f.type === "textarea" ? (
               <textarea
+                placeholder={f.placeholder}
                 value={String(v[f.key] ?? "")}
                 onChange={(e) => setV({ ...v, [f.key]: e.target.value })}
               />
@@ -324,6 +415,67 @@ export default function EntityForm({
           </label>
         ))}
       </div>
+      {kind === "vendor" && (
+        <div className="field-grid" style={{ marginTop: 16 }}>
+          <label className="wide">
+            Catalogue (optional)
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              onChange={(event) =>
+                setCatalogFile(event.target.files?.[0] ?? null)
+              }
+            />
+            <small>PDF, JPG, PNG or WebP · up to 10 MB</small>
+          </label>
+          {initial.id && initial.catalog_path && (
+            <div className="wide row" style={{ gap: 12, alignItems: "center" }}>
+              <a
+                className="text-link"
+                href={`/api/vendor-catalog?id=${initial.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View {String(initial.catalog_name || "catalogue")}
+              </a>
+              <button
+                type="button"
+                className="button small"
+                onClick={async () => {
+                  setError("");
+                  setSavingCatalog(true);
+                  try {
+                    const db = createClient();
+                    const { data: previousPath, error: removeError } =
+                      await db.rpc("set_vendor_catalog", {
+                        p_vendor_id: initial.id,
+                        p_storage_path: "",
+                        p_file_name: "",
+                      });
+                    if (removeError) throw removeError;
+                    if (previousPath)
+                      await db.storage
+                        .from("vendor-catalogs")
+                        .remove([previousPath]);
+                    await refresh();
+                    onDone(String(initial.id));
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Could not remove catalogue",
+                    );
+                  } finally {
+                    setSavingCatalog(false);
+                  }
+                }}
+              >
+                Remove catalogue
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {kind === "payment" && (
         <p className="muted" style={{ marginTop: 16, fontSize: 12 }}>
           This records a payment already made. It does not collect or transfer
@@ -337,8 +489,8 @@ export default function EntityForm({
         </p>
       )}
       <div className="form-footer">
-        <button disabled={busy} className="button primary">
-          {busy
+        <button disabled={busy || savingCatalog} className="button primary">
+          {busy || savingCatalog
             ? "Saving…"
             : kind === "payment"
               ? "Record payment"
