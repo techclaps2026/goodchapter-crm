@@ -408,16 +408,19 @@ p {
 @keyframes navigation-spin {
   to { transform: rotate(360deg); }
 }
-.route-loading {
-  max-width: 760px;
-  padding: 56px 36px;
-  margin: 0 auto;
-  display: flex;
-  align-items: flex-start;
+.loading-sidebar-nav {
+  display: grid;
   gap: 18px;
+  padding: 24px 12px;
 }
-.route-loading h1 { margin: 12px 0 0; }
-.route-loading p { color: var(--muted-foreground); }
+.loading-sidebar-row {
+  height: 16px;
+  width: 75%;
+  background: #ffffff16;
+  animation: pulse 1.3s infinite;
+}
+.loading-sidebar-row:nth-child(even) { width: 60%; }
+.loading-heading { margin-top: 20px; }
 .social-loading {
   display: flex;
   align-items: center;

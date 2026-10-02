@@ -46,6 +46,7 @@ import AccountSettings from "./AccountSettings";
 import InvoiceGenerator from "./InvoiceGenerator";
 import SendEmail from "./SendEmail";
 import SocialMedia from "./SocialMedia";
+import CrmLoading from "./CrmLoading";
 import {
   money,
   dateLabel,
@@ -246,17 +247,7 @@ export default function CRM({
       toast.error(e instanceof Error ? e.message : "Could not save");
     }
   };
-  if (isLoading)
-    return (
-      <div className="content">
-        <div className="eyebrow">THE GOOD CHAPTER</div>
-        <div className="row" role="status" aria-live="polite" style={{ marginTop: 20 }}>
-          <span className="navigation-spinner" aria-hidden="true" />
-          <h1>Opening the studio…</h1>
-        </div>
-        <div className="skeleton" />
-      </div>
-    );
+  if (isLoading) return <CrmLoading />;
   if (error || !s)
     return (
       <div className="error-screen">
