@@ -1009,7 +1009,7 @@ tr.clickable:hover {
 .quote-editor .field-grid > label {
   min-width: 0;
 }
-.quote-editor .field-grid input:not([type="file"]),
+.quote-editor .field-grid input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
 .quote-editor .field-grid select,
 .quote-editor .line-editor .numbers input {
   box-sizing: border-box;
@@ -1096,15 +1096,20 @@ tr.clickable:hover {
 .quote-options-editor p { max-width: 660px; margin: 7px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.6; }
 .quote-option-group-editor { margin-top: 18px; padding: 20px; border: 1px solid var(--border); background: #fbfaf8; }
 .quote-option-group-editor .field-grid { margin: 16px 0; }
+.quote-group-actions { gap: 6px; }
+.quote-group-note-field { margin: 0 0 16px; }
+.quote-group-note-field textarea { min-height: 72px; }
+.quote-add-group { margin-top: 18px; }
 .quote-option-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; }
 .quote-option-editor { display: grid; align-content: start; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--border); background: #fff; }
 .quote-option-editor label { min-width: 0; }
 .quote-option-editor input[type="file"] { max-width: 100%; font-size: 12px; }
 .quote-option-thumb { display: block; width: 100%; height: 150px; object-fit: contain; border: 1px solid var(--border); }
 .quote-option-group-editor > .button { margin-top: 14px; }
-.quote-choice-toggle { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--border); background: #f7f3ec; }
-.quote-choice-toggle input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
-.quote-choice-toggle span { display: grid; gap: 4px; }
+.quote-choice-toggle { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); background: #f7f3ec; cursor: pointer; }
+.quote-choice-toggle input[type="checkbox"] { width: 18px; min-width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; flex: none; }
+.quote-choice-toggle span { display: grid; gap: 2px; }
+.quote-choice-toggle strong { font-size: 13px; font-weight: 600; }
 .quote-choice-toggle small { color: var(--muted-foreground); font-weight: 400; }
 .totals {
   margin-left: auto;
@@ -1266,6 +1271,7 @@ tr.clickable:hover {
 .quote-options-group > .row { gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 9px; margin-bottom: 12px; }
 .quote-options-group h4 { margin: 0; font-size: 15px; }
 .quote-options-group > .row span { color: #71685e; font-size: 12px; }
+.quote-options-group .quote-group-note { margin: 0 0 12px; color: #71685e; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
 .document .quote-option-card { display: block; min-width: 0; padding: 10px; border: 1px solid var(--border); background: #fff; color: inherit; cursor: default; }
 .document .quote-option-card:has(input) { cursor: pointer; }
 .document .quote-option-card.selected { border-color: var(--secondary); box-shadow: inset 0 0 0 1px var(--secondary); }
@@ -1310,7 +1316,9 @@ tr.clickable:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 20px;
 }
 .share-page .document,
 .share-page .quote-choice-submit { width: 100%; min-width: 0; }

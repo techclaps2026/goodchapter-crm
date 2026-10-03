@@ -45,7 +45,7 @@ export default function DocumentView({
             {selection ? "SELECTION PROPOSAL" : d.kind === "quote" ? "QUOTATION" : "INVOICE"}
           </div>
           <h2 style={{ marginTop: 9 }}>{d.ref}</h2>
-          <p>{d.status}</p>
+          {!shareToken && <p>{d.status}</p>}
         </div>
       </header>
       <h2>{d.title}</h2>
@@ -93,8 +93,9 @@ export default function DocumentView({
             <div className="quote-options-group" key={group.id}>
               <div className="row between">
                 <h4>{group.title}</h4>
-                <span>{group.quantity} per option</span>
+                {!shareToken && <span>{group.quantity} per option</span>}
               </div>
+              {group.note && <p className="quote-group-note">{group.note}</p>}
               <div className="quote-option-grid">
                 {group.options.map((option) => {
                   const selected = (selections ?? d.quote_selections)?.[group.id] === option.id;

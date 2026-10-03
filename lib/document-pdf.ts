@@ -53,8 +53,6 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
   pdf.setFont("helvetica", "bold");
   pdf.text(d.ref, 193, 29, { align: "right" });
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.text(d.status, 193, 35, { align: "right" });
   pdf.setDrawColor(24, 23, 21);
   pdf.setLineWidth(0.45);
   pdf.line(margin, 41, 193, 41);
@@ -134,20 +132,25 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
     }
   };
   const gap = 4;
-  const groupHeading = (title: string, quantity: number, continued = false) => {
+  const groupHeading = (group: { title: string; note?: string }, continued = false) => {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
     pdf.setTextColor(24, 23, 21);
-    pdf.text(continued ? `${title} (continued)` : title, margin, y);
-    pdf.setFontSize(8);
-    pdf.setTextColor(105, 98, 90);
-    pdf.text(`${quantity} per option`, 193, y, { align: "right" });
+    pdf.text(continued ? `${group.title} (continued)` : group.title, margin, y);
     y += 5;
     pdf.setDrawColor(222, 216, 204);
     pdf.line(margin, y, 193, y);
     y += 4;
+    if (group.note && !continued) {
+      pdf.setFontSize(8);
+      pdf.setTextColor(105, 98, 90);
+      const noteLines = lines(group.note, contentWidth);
+      pdf.text(noteLines, margin, y);
+      y += noteLines.length * 4.2 + 3;
+    }
   };
-  for (const group of d.quote_options ?? []) {
+  const optionGroups = d.quote_options ?? [];
+  for (const [groupIndex, group] of optionGroups.entries()) {
     const columns = Math.min(3, group.options.length);
     const cardWidth = (contentWidth - gap * (columns - 1)) / columns;
     const layoutOption = (option: (typeof group.options)[number]) => {
@@ -162,15 +165,28 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
         height: Math.max(44, 36 + title.length * 4 + details.length * 3.8 + (selected ? 6 : 0)) };
     };
     const firstRowHeight = Math.max(...group.options.slice(0, columns).map((option) => layoutOption(option).height));
-    if (y + 9 + firstRowHeight > bottom) newPage();
-    groupHeading(group.title, group.quantity);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    const noteHeight = group.note ? lines(group.note, contentWidth).length * 4.2 + 3 : 0;
+    if (groupIndex === optionGroups.length - 1 && d.terms) {
+      const rowHeights = Array.from({ length: Math.ceil(group.options.length / columns) }, (_, row) =>
+        Math.max(...group.options.slice(row * columns, (row + 1) * columns).map((option) => layoutOption(option).height)));
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      const termsHeight = 15 + lines(d.terms, contentWidth).length * 4.5;
+      const groupHeight = 11 + noteHeight + rowHeights.reduce((sum, height) => sum + height + 2, 0);
+      if (y + groupHeight + termsHeight > bottom && 16 + groupHeight + termsHeight <= bottom)
+        newPage();
+    }
+    if (y + 9 + noteHeight + firstRowHeight > bottom) newPage();
+    groupHeading(group);
     for (let index = 0; index < group.options.length; index += columns) {
       const row = group.options.slice(index, index + columns);
       const layouts = row.map(layoutOption);
       const rowHeight = Math.max(...layouts.map((layout) => layout.height));
       if (y + rowHeight > bottom) {
         newPage();
-        groupHeading(group.title, group.quantity, true);
+        groupHeading(group, true);
       }
       const photos = await Promise.all(layouts.map(({ option }) => loadPhoto(option.image_path)));
       for (const [column, layout] of layouts.entries()) {
@@ -267,8 +283,6 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
   });
   pdf.setFontSize(12);
   pdf.text(d.ref, width - margin, 29, { align: "right" });
-  pdf.setFontSize(9);
-  pdf.text(d.status, width - margin, 35, { align: "right" });
   pdf.setDrawColor(40, 38, 34);
   pdf.line(margin, 40, width - margin, 40);
   let y = 48;
@@ -519,7 +533,18 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
         `${item.quantity} x ${value(item.unit_price)}  |  Line total ${value(item.total)}`);
     }
     for (const group of d.quote_options ?? []) {
-      heading(`${group.title.toUpperCase()}  |  ${group.quantity} PER OPTION`);
+      pdf.setFontSize(8);
+      const noteLines = group.note ? pdf.splitTextToSize(group.note, 176) as string[] : [];
+      if (y + 8 + noteLines.length * 4.2 + 48 > 270) newVisualPage();
+      heading(group.title.toUpperCase());
+      if (noteLines.length) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(105, 98, 90);
+        pdf.text(noteLines, margin, y);
+        y += noteLines.length * 4.2 + 3;
+        pdf.setTextColor(20, 19, 17);
+      }
       for (const option of group.options) {
         await card(option.title, option.details, option.image_path,
           selection ? "" : `${value(option.unit_price)} / unit  |  ${group.quantity} units: ${value(group.quantity * Number(option.unit_price))}`);

@@ -40,6 +40,7 @@ const quoteOption = z.object({
 const quoteOptionGroup = z.object({
   id,
   title: name.max(120),
+  note: text.max(500).optional(),
   quantity: z.number().int().min(1).max(1000000),
   options: z.array(quoteOption).min(1).max(8),
 });

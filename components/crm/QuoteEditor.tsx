@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- Uploaded quotation photos are served through an authenticated route. */
 "use client";
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type {
   CommercialDocument,
   Snapshot,
@@ -41,6 +41,7 @@ export default function QuoteEditor({
   const [terms, setTerms] = useState(doc?.terms ?? s.settings.terms);
   const [items, setItems] = useState<LineInput[]>(doc?.pricing_mode === "selection" ? [blankLine()] : doc?.items ?? [blankLine()]);
   const [optionGroups, setOptionGroups] = useState<QuoteOptionGroup[]>(doc?.quote_options ?? []);
+  const [focusedGroupId, setFocusedGroupId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const isInvoice = doc?.kind === "invoice";
@@ -68,6 +69,12 @@ export default function QuoteEditor({
     setOptionGroups((current) => current.map((group) => group.id === groupId
       ? { ...group, options: group.options.map((option) => option.id === optionId ? { ...option, ...values } : option) }
       : group));
+  const moveGroup = (index: number, offset: -1 | 1) =>
+    setOptionGroups((current) => {
+      const next = [...current];
+      [next[index], next[index + offset]] = [next[index + offset], next[index]];
+      return next;
+    });
   return (
     <form
       className="quote-editor"
@@ -122,14 +129,14 @@ export default function QuoteEditor({
           <label><input type="radio" name="pricing-mode" checked={pricingMode === "selection"}
             onChange={() => {
               setPricingMode("selection");
-              if (optionGroups.length === 0) setOptionGroups([{ id: crypto.randomUUID(), title: "", quantity: 1,
+              if (optionGroups.length === 0) setOptionGroups([{ id: crypto.randomUUID(), title: "", note: "", quantity: 1,
                 options: [{ id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }] }]);
             }} /> Selection proposal <small>Present ideas first; send prices later</small></label>
         </fieldset>}
         {!isInvoice && optionGroups.length > 0 && <label className="wide quote-choice-toggle">
           <input type="checkbox" checked={clientChoiceEnabled}
             onChange={(e) => setClientChoiceEnabled(e.target.checked)} />
-          <span>Allow client to choose options on the shared quotation
+          <span><strong>Allow client to choose options on the shared quotation</strong>
             <small>Off by default. Leave it off for inspiration-only proposals.</small>
           </span>
         </label>}
@@ -352,24 +359,25 @@ export default function QuoteEditor({
                 ? "Add one or more groups of alternatives. The client can choose one item from each group. No prices or totals will appear in this proposal."
                 : "Group alternatives such as diya, magnet and keychain. Their prices are shown for review; the quotation total includes only the priced items above."}</p>
             </div>
-            <button type="button" className="button" disabled={optionGroups.length >= 20}
-              onClick={() => setOptionGroups([...optionGroups, {
-                id: crypto.randomUUID(), title: "", quantity: 1,
-                options: [{ id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }],
-              }])}>
-              <Plus size={15} /> Add option group
-            </button>
           </div>
           {optionGroups.map((group, groupIndex) => (
             <div className="quote-option-group-editor" key={group.id}>
               <div className="row between">
                 <strong>Group {groupIndex + 1}</strong>
-                <button type="button" className="icon-button" aria-label={`Remove group ${groupIndex + 1}`}
-                  onClick={() => setOptionGroups(optionGroups.filter((entry) => entry.id !== group.id))}><Trash2 size={15} /></button>
+                <div className="row quote-group-actions">
+                  <button type="button" className="icon-button" aria-label={`Move group ${groupIndex + 1} up`}
+                    title="Move up" disabled={groupIndex === 0}
+                    onClick={() => moveGroup(groupIndex, -1)}><ArrowUp size={15} /></button>
+                  <button type="button" className="icon-button" aria-label={`Move group ${groupIndex + 1} down`}
+                    title="Move down" disabled={groupIndex === optionGroups.length - 1}
+                    onClick={() => moveGroup(groupIndex, 1)}><ArrowDown size={15} /></button>
+                  <button type="button" className="icon-button" aria-label={`Remove group ${groupIndex + 1}`}
+                    title="Remove group" onClick={() => setOptionGroups(optionGroups.filter((entry) => entry.id !== group.id))}><Trash2 size={15} /></button>
+                </div>
               </div>
               <div className="field-grid">
                 <label>Choice category
-                  <input required value={group.title} placeholder="e.g. Diwali hamper add-on"
+                  <input required autoFocus={group.id === focusedGroupId} value={group.title} placeholder="e.g. Diwali hamper add-on"
                     onChange={(event) => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? { ...entry, title: event.target.value } : entry))} />
                 </label>
                 <label>Quantity per option
@@ -377,6 +385,11 @@ export default function QuoteEditor({
                     onChange={(event) => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? { ...entry, quantity: Number(event.target.value) } : entry))} />
                 </label>
               </div>
+              <label className="quote-group-note-field">Group note (optional)
+                <textarea maxLength={500} value={group.note ?? ""}
+                  placeholder="A note that applies to every option in this group"
+                  onChange={(event) => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? { ...entry, note: event.target.value } : entry))} />
+              </label>
               <div className="quote-option-grid">
                 {group.options.map((option, optionIndex) => (
                   <div className="quote-option-editor" key={option.id}>
@@ -416,6 +429,17 @@ export default function QuoteEditor({
                 } : entry))}><Plus size={14} /> Add another option</button>
             </div>
           ))}
+          <button type="button" className="button quote-add-group" disabled={optionGroups.length >= 20}
+            onClick={() => {
+              const id = crypto.randomUUID();
+              setFocusedGroupId(id);
+              setOptionGroups((current) => [...current, {
+                id, title: "", note: "", quantity: 1,
+                options: [{ id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }],
+              }]);
+            }}>
+            <Plus size={15} /> Add option group
+          </button>
         </section>
       )}
       {(isInvoice || pricingMode === "priced") && <Totals {...totals} tax_mode={mode} />}

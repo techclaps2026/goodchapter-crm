@@ -120,6 +120,7 @@ export interface QuoteOption {
 export interface QuoteOptionGroup {
   id: string;
   title: string;
+  note?: string;
   quantity: number;
   options: QuoteOption[];
 }

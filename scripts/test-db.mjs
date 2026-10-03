@@ -63,12 +63,23 @@ await test("database recomputes money and strips private line fields", async () 
   assert.equal(d.items[0].cost, undefined);
   assert.equal(d.customer.notes, undefined);
 });
+await test("quotation group notes and order survive normalization", async () => {
+  const groups = ["Packaging", "Drinkware"].map((title) => ({
+    id: id(), title, note: `${title} applies to the whole group`, quantity: 80,
+    options: [{ id: id(), title: `${title} choice`, details: "", image_path: "", unit_price: 0 }],
+  }));
+  const normalized = (await db.query("select public.normalize_quote_options($1::jsonb) as groups", [JSON.stringify(groups)])).rows[0].groups;
+  assert.deepEqual(normalized.map(({ title, note }) => [title, note]), [
+    ["Packaging", "Packaging applies to the whole group"],
+    ["Drinkware", "Drinkware applies to the whole group"],
+  ]);
+});
 await test("quotation photos and client choices survive sharing and revision", async () => {
   const path = `${OWNER}/${id()}.png`;
   const groupId = id();
   const optionId = id();
   const options = [{
-    id: groupId, title: "Diwali hamper finishing touch", quantity: 80,
+    id: groupId, title: "Diwali hamper finishing touch", note: "Choose one finishing touch for the hamper.", quantity: 80,
     options: [{ id: optionId, title: "Hand painted diya", details: "Assorted colours",
       image_path: path, unit_price: 85 }],
   }];
@@ -89,6 +100,7 @@ await test("quotation photos and client choices survive sharing and revision", a
   assert.equal(saved.items[0].moq, 50);
   assert.equal(saved.items[0].notes, "Lead time: two weeks");
   assert.equal(saved.quote_options[0].options[0].image_path, path);
+  assert.equal(saved.quote_options[0].note, "Choose one finishing touch for the hamper.");
   assert.equal(saved.client_choice_enabled, true);
   assert.equal(Number(saved.total), 46800);
   await call("quote_status", { id: q, status: "Sent" });
@@ -98,6 +110,7 @@ await test("quotation photos and client choices survive sharing and revision", a
     (await tx.query("select shared_document($1::uuid) d", [token])).rows[0].d
   ));
   assert.equal(shared.quote_options[0].options[0].title, "Hand painted diya");
+  assert.equal(shared.quote_options[0].note, "Choose one finishing touch for the hamper.");
   await assert.rejects(asUser(db, null, (tx) =>
     tx.query("select select_quote_options($1::uuid,$2::jsonb)", [token, JSON.stringify({ [groupId]: id() })])
   ), /Choose one option/);
