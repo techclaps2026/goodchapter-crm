@@ -16,13 +16,13 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const margin = 17;
   const contentWidth = 176;
-  const bottom = 273;
+  const bottom = 279;
   let y = 52;
   const lines = (text: string, width: number) =>
     pdf.splitTextToSize(text, width) as string[];
   const newPage = () => {
     pdf.addPage();
-    y = 20;
+    y = 16;
   };
   const ensureSpace = (height: number) => {
     if (y + height > bottom) newPage();
@@ -135,7 +135,6 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
   };
   const gap = 4;
   const groupHeading = (title: string, quantity: number, continued = false) => {
-    ensureSpace(17);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
     pdf.setTextColor(24, 23, 21);
@@ -149,21 +148,25 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
     y += 4;
   };
   for (const group of d.quote_options ?? []) {
-    ensureSpace(75);
-    groupHeading(group.title, group.quantity);
     const columns = Math.min(3, group.options.length);
     const cardWidth = (contentWidth - gap * (columns - 1)) / columns;
+    const layoutOption = (option: (typeof group.options)[number]) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      const title = lines(option.title, cardWidth - 6);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      const details = option.details ? lines(option.details, cardWidth - 6) : [];
+      const selected = d.quote_selections?.[group.id] === option.id;
+      return { option, title, details, selected,
+        height: Math.max(44, 36 + title.length * 4 + details.length * 3.8 + (selected ? 6 : 0)) };
+    };
+    const firstRowHeight = Math.max(...group.options.slice(0, columns).map((option) => layoutOption(option).height));
+    if (y + 9 + firstRowHeight > bottom) newPage();
+    groupHeading(group.title, group.quantity);
     for (let index = 0; index < group.options.length; index += columns) {
       const row = group.options.slice(index, index + columns);
-      const layouts = row.map((option) => {
-        pdf.setFontSize(9);
-        const title = lines(option.title, cardWidth - 6);
-        pdf.setFontSize(8);
-        const details = option.details ? lines(option.details, cardWidth - 6) : [];
-        const selected = d.quote_selections?.[group.id] === option.id;
-        return { option, title, details, selected,
-          height: Math.max(61, 53 + title.length * 4 + details.length * 3.8 + (selected ? 6 : 0)) };
-      });
+      const layouts = row.map(layoutOption);
       const rowHeight = Math.max(...layouts.map((layout) => layout.height));
       if (y + rowHeight > bottom) {
         newPage();
@@ -175,40 +178,41 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
         pdf.setDrawColor(layout.selected ? 118 : 222, layout.selected ? 78 : 216, layout.selected ? 52 : 204);
         pdf.rect(x, y, cardWidth, rowHeight);
         pdf.setFillColor(250, 248, 244);
-        pdf.rect(x + 2.5, y + 2.5, cardWidth - 5, 43, "F");
+        pdf.rect(x + 2.5, y + 2.5, cardWidth - 5, 27, "F");
         const photo = photos[column];
         if (photo) {
-          const scale = Math.min((cardWidth - 7) / photo.width, 40 / photo.height);
+          const scale = Math.min((cardWidth - 7) / photo.width, 24 / photo.height);
           const imageWidth = photo.width * scale;
           const imageHeight = photo.height * scale;
           pdf.addImage(photo.data, "JPEG", x + (cardWidth - imageWidth) / 2,
-            y + 4 + (40 - imageHeight) / 2, imageWidth, imageHeight);
+            y + 4 + (24 - imageHeight) / 2, imageWidth, imageHeight);
         } else {
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(8);
           pdf.setTextColor(118, 110, 100);
-          pdf.text("Product photo pending", x + cardWidth / 2, y + 25, { align: "center" });
+          pdf.text("Product photo pending", x + cardWidth / 2, y + 18, { align: "center" });
         }
         pdf.setTextColor(24, 23, 21);
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(9);
-        pdf.text(layout.title, x + 3, y + 51);
+        pdf.text(layout.title, x + 3, y + 34);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8);
         pdf.setTextColor(105, 98, 90);
         if (layout.details.length)
-          pdf.text(layout.details, x + 3, y + 52 + layout.title.length * 4);
+          pdf.text(layout.details, x + 3, y + 35 + layout.title.length * 4);
         if (layout.selected) {
           pdf.setFont("helvetica", "bold");
           pdf.text("Client selected", x + 3, y + rowHeight - 4);
         }
       }
-      y += rowHeight + 4;
+      y += rowHeight + 2;
     }
-    y += 6;
+    y += 2;
   }
   if (d.terms) {
-    ensureSpace(24);
+    const termLines = lines(d.terms, contentWidth);
+    ensureSpace(15 + termLines.length * 4.5);
     pdf.setDrawColor(222, 216, 204);
     pdf.line(margin, y, 193, y);
     y += 9;
@@ -219,7 +223,6 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
     y += 6;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
-    const termLines = lines(d.terms, contentWidth);
     for (const line of termLines) {
       ensureSpace(5);
       pdf.text(line, margin, y);
