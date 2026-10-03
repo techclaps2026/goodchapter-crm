@@ -149,9 +149,9 @@ type FormState =
   | { kind: "quote"; doc?: CommercialDocument; clientId?: string }
   | { kind: "invoice"; doc: CommercialDocument }
   | null;
-function table(headers: string[], rows: React.ReactNode[][], empty: string) {
+function table(headers: string[], rows: React.ReactNode[][], empty: string, className = "") {
   return (
-    <div className="table-wrap">
+    <div className={`table-wrap ${className}`}>
       <table>
         <thead>
           <tr>
@@ -164,7 +164,7 @@ function table(headers: string[], rows: React.ReactNode[][], empty: string) {
           {rows.map((cells, i) => (
             <tr key={i}>
               {cells.map((c, j) => (
-                <td key={j}>{c}</td>
+                <td key={j} data-label={headers[j]}>{c}</td>
               ))}
             </tr>
           ))}
@@ -176,6 +176,25 @@ function table(headers: string[], rows: React.ReactNode[][], empty: string) {
           description="Add your first record, or adjust your search and filters."
         />
       )}
+    </div>
+  );
+}
+function VendorSpeciality({ category, subcategories, productsList }: {
+  category: string;
+  subcategories: string;
+  productsList: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const description = [subcategories, productsList].filter(Boolean).join(" · ");
+  const canExpand = Boolean(productsList) || description.length > 80;
+  return (
+    <div className="vendor-speciality">
+      <span>{category}</span>
+      <small className={!expanded && canExpand ? "vendor-speciality-preview" : ""}>{description || "—"}</small>
+      {canExpand && <button type="button" className="text-link vendor-speciality-toggle"
+        aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        {expanded ? "Show less" : "Show full list"}
+      </button>}
     </div>
   );
 }
@@ -1304,15 +1323,8 @@ export default function CRM({
             )
             .map((v) => [
               <strong key="n">{v.name}</strong>,
-              <span key="speciality">
-                {v.category}
-                <small>{v.subcategories || "—"}</small>
-                {v.products_list && (
-                  <small style={{ whiteSpace: "pre-wrap" }}>
-                    {v.products_list}
-                  </small>
-                )}
-              </span>,
+              <VendorSpeciality key="speciality" category={v.category}
+                subcategories={v.subcategories} productsList={v.products_list} />,
               <span key="c">
                 {v.contact_name}
                 <small>
@@ -1356,6 +1368,7 @@ export default function CRM({
               </div>,
             ]),
           "No vendors yet",
+          "vendor-table",
         )}
       </>
     );
