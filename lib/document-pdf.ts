@@ -11,9 +11,236 @@ const value = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-export async function buildDocumentPdf(d: CommercialDocument, shareToken?: string) {
+
+async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const margin = 17;
+  const contentWidth = 176;
+  const bottom = 273;
+  let y = 52;
+  const lines = (text: string, width: number) =>
+    pdf.splitTextToSize(text, width) as string[];
+  const newPage = () => {
+    pdf.addPage();
+    y = 20;
+  };
+  const ensureSpace = (height: number) => {
+    if (y + height > bottom) newPage();
+  };
+  const writeLines = (text: string, x: number, top: number, width: number, step = 4.5) => {
+    const wrapped = lines(text, width);
+    pdf.text(wrapped, x, top);
+    return top + wrapped.length * step;
+  };
+  pdf.setFont("helvetica");
+  pdf.setTextColor(24, 23, 21);
+  try {
+    const logo = new Image();
+    logo.src = "/logo-dark.svg";
+    await logo.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = 935;
+    canvas.height = 232;
+    canvas.getContext("2d")!.drawImage(logo, 0, 0, canvas.width, canvas.height);
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, 16, 70, 17.4);
+  } catch {
+    pdf.setFontSize(16);
+    pdf.text(d.business.company_name, margin, 26);
+  }
+  pdf.setFontSize(9);
+  pdf.text("SELECTION PROPOSAL", 193, 21, { align: "right" });
+  pdf.setFontSize(12);
+  pdf.setFont("helvetica", "bold");
+  pdf.text(d.ref, 193, 29, { align: "right" });
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(d.status, 193, 35, { align: "right" });
+  pdf.setDrawColor(24, 23, 21);
+  pdf.setLineWidth(0.45);
+  pdf.line(margin, 41, 193, 41);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  y = writeLines(d.title, margin, y, contentWidth, 7) + 8;
+  pdf.setFontSize(8);
+  pdf.setTextColor(105, 98, 90);
+  pdf.text("PREPARED FOR", margin, y);
+  pdf.text("DETAILS", 108, y);
+  y += 6;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(24, 23, 21);
+  const clientName = d.customer.organisation || d.customer.name;
+  const clientNameEnd = writeLines(clientName, margin, y, 79, 5);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor(105, 98, 90);
+  const clientDetails = [
+    d.customer.organisation ? d.customer.name : "",
+    d.customer.billing_address,
+    d.customer.email,
+    d.customer.gstin ? `GSTIN: ${d.customer.gstin}` : "",
+  ].filter(Boolean).join("\n");
+  const leftEnd = clientDetails ? writeLines(clientDetails, margin, clientNameEnd + 1, 79) : clientNameEnd;
+  const rightEnd = writeLines(
+    `Valid until: ${dateLabel(d.valid_until)}\n${d.client_choice_enabled ? "Pricing will follow your selections" : "Concepts for discussion; pricing to follow"}`,
+    108, y, 85,
+  );
+  y = Math.max(leftEnd, rightEnd) + 8;
+  pdf.setDrawColor(222, 216, 204);
+  pdf.setLineWidth(0.2);
+  pdf.line(margin, y, 193, y);
+  y += 11;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.setTextColor(105, 98, 90);
+  pdf.text("EXPLORE YOUR OPTIONS", margin, y);
+  y += 7;
+  pdf.setTextColor(24, 23, 21);
+  pdf.setFontSize(14);
+  pdf.text(d.client_choice_enabled ? "Choose the details that make it yours" : "Explore the possibilities", margin, y);
+  y += 7;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor(105, 98, 90);
+  y = writeLines(d.client_choice_enabled
+    ? "Choose one item from each group. We'll prepare a priced quotation after reviewing your selections."
+    : "These ideas are for inspiration and discussion. Tell us what you like, and we'll prepare a priced quotation around your brief.", margin, y, contentWidth) + 7;
+
+  const loadPhoto = async (path: string) => {
+    if (!path) return null;
+    try {
+      const response = await fetch(quoteImageUrl(path, shareToken));
+      if (!response.ok) return null;
+      const url = URL.createObjectURL(await response.blob());
+      try {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(1, 650 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = Math.round(image.naturalWidth * scale);
+        canvas.height = Math.round(image.naturalHeight * scale);
+        const context = canvas.getContext("2d");
+        if (context) context.fillStyle = "#ffffff";
+        context?.fillRect(0, 0, canvas.width, canvas.height);
+        context?.drawImage(image, 0, 0, canvas.width, canvas.height);
+        return { data: canvas.toDataURL("image/jpeg", 0.78), width: canvas.width, height: canvas.height };
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      return null;
+    }
+  };
+  const gap = 4;
+  const groupHeading = (title: string, quantity: number, continued = false) => {
+    ensureSpace(17);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(24, 23, 21);
+    pdf.text(continued ? `${title} (continued)` : title, margin, y);
+    pdf.setFontSize(8);
+    pdf.setTextColor(105, 98, 90);
+    pdf.text(`${quantity} per option`, 193, y, { align: "right" });
+    y += 5;
+    pdf.setDrawColor(222, 216, 204);
+    pdf.line(margin, y, 193, y);
+    y += 4;
+  };
+  for (const group of d.quote_options ?? []) {
+    ensureSpace(75);
+    groupHeading(group.title, group.quantity);
+    const columns = Math.min(3, group.options.length);
+    const cardWidth = (contentWidth - gap * (columns - 1)) / columns;
+    for (let index = 0; index < group.options.length; index += columns) {
+      const row = group.options.slice(index, index + columns);
+      const layouts = row.map((option) => {
+        pdf.setFontSize(9);
+        const title = lines(option.title, cardWidth - 6);
+        pdf.setFontSize(8);
+        const details = option.details ? lines(option.details, cardWidth - 6) : [];
+        const selected = d.quote_selections?.[group.id] === option.id;
+        return { option, title, details, selected,
+          height: Math.max(61, 53 + title.length * 4 + details.length * 3.8 + (selected ? 6 : 0)) };
+      });
+      const rowHeight = Math.max(...layouts.map((layout) => layout.height));
+      if (y + rowHeight > bottom) {
+        newPage();
+        groupHeading(group.title, group.quantity, true);
+      }
+      const photos = await Promise.all(layouts.map(({ option }) => loadPhoto(option.image_path)));
+      for (const [column, layout] of layouts.entries()) {
+        const x = margin + column * (cardWidth + gap);
+        pdf.setDrawColor(layout.selected ? 118 : 222, layout.selected ? 78 : 216, layout.selected ? 52 : 204);
+        pdf.rect(x, y, cardWidth, rowHeight);
+        pdf.setFillColor(250, 248, 244);
+        pdf.rect(x + 2.5, y + 2.5, cardWidth - 5, 43, "F");
+        const photo = photos[column];
+        if (photo) {
+          const scale = Math.min((cardWidth - 7) / photo.width, 40 / photo.height);
+          const imageWidth = photo.width * scale;
+          const imageHeight = photo.height * scale;
+          pdf.addImage(photo.data, "JPEG", x + (cardWidth - imageWidth) / 2,
+            y + 4 + (40 - imageHeight) / 2, imageWidth, imageHeight);
+        } else {
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(118, 110, 100);
+          pdf.text("Product photo pending", x + cardWidth / 2, y + 25, { align: "center" });
+        }
+        pdf.setTextColor(24, 23, 21);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.text(layout.title, x + 3, y + 51);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(105, 98, 90);
+        if (layout.details.length)
+          pdf.text(layout.details, x + 3, y + 52 + layout.title.length * 4);
+        if (layout.selected) {
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Client selected", x + 3, y + rowHeight - 4);
+        }
+      }
+      y += rowHeight + 4;
+    }
+    y += 6;
+  }
+  if (d.terms) {
+    ensureSpace(24);
+    pdf.setDrawColor(222, 216, 204);
+    pdf.line(margin, y, 193, y);
+    y += 9;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(105, 98, 90);
+    pdf.text("TERMS", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    const termLines = lines(d.terms, contentWidth);
+    for (const line of termLines) {
+      ensureSpace(5);
+      pdf.text(line, margin, y);
+      y += 4.5;
+    }
+  }
+  for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
+    pdf.setPage(page);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(110, 103, 94);
+    pdf.text(`${d.business.company_name} | ${d.ref}`, margin, 285);
+    pdf.text(`${page} / ${pdf.getNumberOfPages()}`, 193, 285, { align: "right" });
+  }
+  return pdf;
+}
+
+export async function buildDocumentPdf(d: CommercialDocument, shareToken?: string) {
   const selection = d.kind === "quote" && d.pricing_mode === "selection";
+  if (selection) return buildSelectionPdf(d, shareToken);
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const width = 210;
   const margin = 17;
   pdf.setFont("helvetica");
@@ -224,11 +451,14 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
           image.src = url;
           await image.decode();
           const canvas = document.createElement("canvas");
-          const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+          const scale = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight));
           canvas.width = Math.round(image.naturalWidth * scale);
           canvas.height = Math.round(image.naturalHeight * scale);
-          canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-          return { data: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height };
+          const context = canvas.getContext("2d");
+          if (context) context.fillStyle = "#ffffff";
+          context?.fillRect(0, 0, canvas.width, canvas.height);
+          context?.drawImage(image, 0, 0, canvas.width, canvas.height);
+          return { data: canvas.toDataURL("image/jpeg", 0.78), width: canvas.width, height: canvas.height };
         } finally {
           URL.revokeObjectURL(url);
         }
@@ -258,7 +488,7 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
           const scale = Math.min(38 / image.width, 38 / image.height);
           const imageWidth = image.width * scale;
           const imageHeight = image.height * scale;
-          pdf.addImage(image.data, "PNG", margin + 3 + (38 - imageWidth) / 2,
+          pdf.addImage(image.data, "JPEG", margin + 3 + (38 - imageWidth) / 2,
             y + 3 + (38 - imageHeight) / 2, imageWidth, imageHeight);
         }
       }

@@ -37,6 +37,7 @@ export default function QuoteEditor({
   );
   const [mode, setMode] = useState<TaxMode>(doc?.tax_mode ?? "None");
   const [pricingMode, setPricingMode] = useState<QuotePricingMode>(doc?.pricing_mode ?? "priced");
+  const [clientChoiceEnabled, setClientChoiceEnabled] = useState(doc?.client_choice_enabled ?? false);
   const [terms, setTerms] = useState(doc?.terms ?? s.settings.terms);
   const [items, setItems] = useState<LineInput[]>(doc?.pricing_mode === "selection" ? [blankLine()] : doc?.items ?? [blankLine()]);
   const [optionGroups, setOptionGroups] = useState<QuoteOptionGroup[]>(doc?.quote_options ?? []);
@@ -91,6 +92,7 @@ export default function QuoteEditor({
                 valid_until: valid || null,
                 tax_mode: pricingMode === "selection" ? "None" : mode,
                 pricing_mode: pricingMode,
+                client_choice_enabled: clientChoiceEnabled,
                 items: pricingMode === "selection" ? [] : items,
                 quote_options: pricingMode === "selection"
                   ? optionGroups.map((group) => ({ ...group, options: group.options.map((option) => ({ ...option, unit_price: 0 })) }))
@@ -122,8 +124,15 @@ export default function QuoteEditor({
               setPricingMode("selection");
               if (optionGroups.length === 0) setOptionGroups([{ id: crypto.randomUUID(), title: "", quantity: 1,
                 options: [{ id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }] }]);
-            }} /> Selection proposal <small>Let the client choose first; send prices later</small></label>
+            }} /> Selection proposal <small>Present ideas first; send prices later</small></label>
         </fieldset>}
+        {!isInvoice && optionGroups.length > 0 && <label className="wide quote-choice-toggle">
+          <input type="checkbox" checked={clientChoiceEnabled}
+            onChange={(e) => setClientChoiceEnabled(e.target.checked)} />
+          <span>Allow client to choose options on the shared quotation
+            <small>Off by default. Leave it off for inspiration-only proposals.</small>
+          </span>
+        </label>}
         {isInvoice ? (
           <label>
             Client

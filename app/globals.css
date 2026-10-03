@@ -1102,6 +1102,10 @@ tr.clickable:hover {
 .quote-option-editor input[type="file"] { max-width: 100%; font-size: 12px; }
 .quote-option-thumb { display: block; width: 100%; height: 150px; object-fit: contain; border: 1px solid var(--border); }
 .quote-option-group-editor > .button { margin-top: 14px; }
+.quote-choice-toggle { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--border); background: #f7f3ec; }
+.quote-choice-toggle input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
+.quote-choice-toggle span { display: grid; gap: 4px; }
+.quote-choice-toggle small { color: var(--muted-foreground); font-weight: 400; }
 .totals {
   margin-left: auto;
   max-width: 350px;
@@ -1295,14 +1299,31 @@ tr.clickable:hover {
   max-width: none;
 }
 .share-page {
+  width: 100%;
+  min-width: 0;
   max-width: 1000px;
   padding: 32px 20px;
   margin: auto;
 }
 .print-actions {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
+}
+.share-page .document,
+.share-page .quote-choice-submit { width: 100%; min-width: 0; }
+.share-page .document h2,
+.share-page .document h3,
+.share-page .document h4,
+.share-page .document p { overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .share-page { padding: 14px 10px 36px; }
+  .share-page .document { padding: 18px; }
+  .share-page .quote-choice-submit { padding: 18px; }
+  .share-page .quote-choice-submit .button { width: 100%; justify-content: center; }
+  .print-actions .button { flex-shrink: 0; }
 }
 .error-screen {
   padding: 60px;

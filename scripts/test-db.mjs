@@ -82,13 +82,14 @@ await test("quotation photos and client choices survive sharing and revision", a
     title: "Diwali hamper", client_id: client, lead_id: null,
     valid_until: null, tax_mode: "None",
     items: [{ ...line, image_path: path, moq: 50, notes: "Lead time: two weeks" }],
-    quote_options: options, terms: "",
+    quote_options: options, client_choice_enabled: true, terms: "",
   })).id;
   const saved = (await db.query("select * from documents where id=$1", [q])).rows[0];
   assert.equal(saved.items[0].image_path, path);
   assert.equal(saved.items[0].moq, 50);
   assert.equal(saved.items[0].notes, "Lead time: two weeks");
   assert.equal(saved.quote_options[0].options[0].image_path, path);
+  assert.equal(saved.client_choice_enabled, true);
   assert.equal(Number(saved.total), 46800);
   await call("quote_status", { id: q, status: "Sent" });
   await call("share_document", { id: q, enabled: true });
@@ -135,12 +136,23 @@ await test("selection proposals stay unpriced until a priced revision", async ()
     valid_until: null, tax_mode: "None", pricing_mode: "selection",
     items: [], quote_options: [{ ...choices[0], options: [{ ...choices[0].options[0], unit_price: 85 }] }], terms: "",
   }), /cannot contain prices/);
-  await call("quote_status", { id: proposal, status: "Sent" });
   await call("share_document", { id: proposal, enabled: true });
-  const token = (await db.query("select share_token from documents where id=$1", [proposal])).rows[0].share_token;
+  const sharedRow = (await db.query("select share_token,status from documents where id=$1", [proposal])).rows[0];
+  assert.equal(sharedRow.status, "Sent");
+  const token = sharedRow.share_token;
   const shared = await asUser(db, null, async (tx) =>
     (await tx.query("select shared_document($1::uuid) d", [token])).rows[0].d);
   assert.equal(shared.pricing_mode, "selection");
+  assert.equal(shared.client_choice_enabled, false);
+  await assert.rejects(asUser(db, null, (tx) =>
+    tx.query("select select_quote_options($1::uuid,$2::jsonb)", [token, JSON.stringify({ [groupId]: selectedId })])),
+  /selection is disabled/);
+  await call("save_quote", {
+    id: proposal, title: saved.title, client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", pricing_mode: "selection",
+    items: [], quote_options: choices, client_choice_enabled: true, terms: saved.terms,
+  });
+  assert.equal((await db.query("select share_token from documents where id=$1", [proposal])).rows[0].share_token, token);
   await asUser(db, null, (tx) =>
     tx.query("select select_quote_options($1::uuid,$2::jsonb)", [token, JSON.stringify({ [groupId]: selectedId })]));
   const revisionId = (await call("revise_quote", { id: proposal })).id;

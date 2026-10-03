@@ -76,16 +76,18 @@ export default function DocumentView({
               ? `Valid until: ${dateLabel(d.valid_until)}`
               : `Issued: ${dateLabel(d.issued_on)}\nDue: ${dateLabel(d.due_on)}`}
             <br />
-            {selection ? "Pricing will follow your selections" : <>Currency: INR · Tax: {d.tax_mode}</>}
+            {selection ? (d.client_choice_enabled ? "Pricing will follow your selections" : "Concepts for discussion; pricing to follow") : <>Currency: INR · Tax: {d.tax_mode}</>}
           </p>
         </div>
       </div>
       {d.kind === "quote" && (d.quote_options?.length ?? 0) > 0 && (
         <section className="quote-options-view">
           <div className="eyebrow">EXPLORE YOUR OPTIONS</div>
-          <h3>Choose the details that make it yours</h3>
+          <h3>{selection && !d.client_choice_enabled ? "Explore the possibilities" : "Choose the details that make it yours"}</h3>
           <p>{selection
-            ? "Choose one item from each group. We’ll prepare a priced quotation after reviewing your selections."
+            ? d.client_choice_enabled
+              ? "Choose one item from each group. We’ll prepare a priced quotation after reviewing your selections."
+              : "These ideas are for inspiration and discussion. Tell us what you like, and we’ll prepare a priced quotation around your brief."
             : "Option prices are shown for comparison. The quotation total below reflects the priced items; choices will be confirmed in a revised quotation."}</p>
           {d.quote_options?.map((group) => (
             <div className="quote-options-group" key={group.id}>

@@ -7,6 +7,7 @@ import type { CommercialDocument } from "@/lib/types";
 export default function SharedDocument({ doc, token }: { doc: CommercialDocument; token: string }) {
   const [busy, setBusy] = useState(false);
   const [selections, setSelections] = useState<Record<string, string>>(doc.quote_selections ?? {});
+  const canChoose = doc.kind === "quote" && doc.status === "Sent" && doc.client_choice_enabled === true;
   return (
     <main className="share-page">
       <div className="print-actions">
@@ -30,10 +31,10 @@ export default function SharedDocument({ doc, token }: { doc: CommercialDocument
         </button>
       </div>
       <DocumentView doc={doc} shareToken={token} selections={selections}
-        onSelect={doc.kind === "quote" && doc.status === "Sent"
+        onSelect={canChoose
           ? (groupId, optionId) => setSelections((current) => ({ ...current, [groupId]: optionId }))
           : undefined} />
-      {doc.kind === "quote" && doc.status === "Sent" && (doc.quote_options?.length ?? 0) > 0 && (
+      {canChoose && (doc.quote_options?.length ?? 0) > 0 && (
         <div className="quote-choice-submit">
           <p>Send your choices to The Good Chapter. We’ll confirm the final combination and price in an updated quotation.</p>
           <button className="button primary" disabled={busy || !doc.quote_options?.every((group) => selections[group.id])}

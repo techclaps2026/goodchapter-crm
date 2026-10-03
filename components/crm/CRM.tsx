@@ -714,7 +714,7 @@ export default function CRM({
                         )
                       }
                     >
-                      {quoteStatuses.map((s) => (
+                      {quoteStatuses.filter((status) => status !== "Draft" || !doc.share_token || doc.status === "Draft").map((s) => (
                         <option key={s}>{s}</option>
                       ))}
                     </select>
@@ -885,21 +885,24 @@ export default function CRM({
               ) : doc.status !== "Superseded" ? (
                 <button
                   className="button small"
-                  disabled={busy || doc.status === "Draft"}
+                  disabled={busy || (doc.status === "Draft" && doc.pricing_mode !== "selection")}
                   onClick={() =>
                     run(() =>
                       mutate("share_document", { id: doc.id, enabled: true }),
                     )
                   }
                 >
-                  Enable share link
+                  {doc.status === "Draft" && doc.pricing_mode === "selection"
+                    ? "Send proposal & enable link"
+                    : "Enable share link"}
                 </button>
               ) : null}
             </div>
           </div>
           <p style={{ fontSize: 11, marginTop: 15 }}>
-            Record status changes manually. Sharing shortcuts do not send
-            messages or change document status.
+            {doc.pricing_mode === "selection" && doc.status === "Draft"
+              ? `Enabling the link marks this selection proposal as Sent. ${doc.client_choice_enabled ? "The client can choose options." : "The client can review the ideas without choosing options."} It does not send a message.`
+              : "Record status changes manually. Sharing shortcuts do not send messages or change document status."}
             {accepted
               ? " Accepted quotations are locked; revisions create a new draft."
               : ""}
