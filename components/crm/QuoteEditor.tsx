@@ -6,6 +6,7 @@ import type {
   CommercialDocument,
   Snapshot,
   TaxMode,
+  QuotePricingMode,
   LineInput,
   QuoteOptionGroup,
 } from "@/lib/types";
@@ -35,8 +36,9 @@ export default function QuoteEditor({
     doc?.kind === "invoice" ? doc.due_on || "" : doc?.valid_until || "",
   );
   const [mode, setMode] = useState<TaxMode>(doc?.tax_mode ?? "None");
+  const [pricingMode, setPricingMode] = useState<QuotePricingMode>(doc?.pricing_mode ?? "priced");
   const [terms, setTerms] = useState(doc?.terms ?? s.settings.terms);
-  const [items, setItems] = useState<LineInput[]>(doc?.items ?? [blankLine()]);
+  const [items, setItems] = useState<LineInput[]>(doc?.pricing_mode === "selection" ? [blankLine()] : doc?.items ?? [blankLine()]);
   const [optionGroups, setOptionGroups] = useState<QuoteOptionGroup[]>(doc?.quote_options ?? []);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -87,9 +89,12 @@ export default function QuoteEditor({
                 client_id: client,
                 lead_id: lead || null,
                 valid_until: valid || null,
-                tax_mode: mode,
-                items,
-                quote_options: optionGroups,
+                tax_mode: pricingMode === "selection" ? "None" : mode,
+                pricing_mode: pricingMode,
+                items: pricingMode === "selection" ? [] : items,
+                quote_options: pricingMode === "selection"
+                  ? optionGroups.map((group) => ({ ...group, options: group.options.map((option) => ({ ...option, unit_price: 0 })) }))
+                  : optionGroups,
                 terms,
               });
           onDone(result.id);
@@ -108,6 +113,17 @@ export default function QuoteEditor({
             placeholder="e.g. New-joiner welcome kits"
           />
         </label>
+        {!isInvoice && <fieldset className="wide quote-pricing-mode">
+          <legend>Quotation type</legend>
+          <label><input type="radio" name="pricing-mode" checked={pricingMode === "priced"}
+            onChange={() => setPricingMode("priced")} /> Priced quotation <small>Show item prices and a total</small></label>
+          <label><input type="radio" name="pricing-mode" checked={pricingMode === "selection"}
+            onChange={() => {
+              setPricingMode("selection");
+              if (optionGroups.length === 0) setOptionGroups([{ id: crypto.randomUUID(), title: "", quantity: 1,
+                options: [{ id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }] }]);
+            }} /> Selection proposal <small>Let the client choose first; send prices later</small></label>
+        </fieldset>}
         {isInvoice ? (
           <label>
             Client
@@ -161,7 +177,7 @@ export default function QuoteEditor({
             onChange={(e) => setValid(e.target.value)}
           />
         </label>
-        <label>
+        {(isInvoice || pricingMode === "priced") && <label>
           Tax presentation
           <select
             value={mode}
@@ -171,9 +187,10 @@ export default function QuoteEditor({
             <option>CGST/SGST</option>
             <option>IGST</option>
           </select>
-        </label>
+        </label>}
       </div>
       <div className="divider" />
+      {(isInvoice || pricingMode === "priced") && <>
       <div className="row between">
         <h3>Items & services</h3>
         <select
@@ -316,12 +333,15 @@ export default function QuoteEditor({
         <Plus size={15} />
         Custom item / charge
       </button>
+      </>}
       {!isInvoice && (
         <section className="quote-options-editor">
           <div className="row between">
             <div>
-              <h3>Client comparison options</h3>
-              <p>Group alternatives such as diya, magnet and keychain. Their prices are shown for review; the quotation total includes only the priced items above.</p>
+              <h3>{pricingMode === "selection" ? "Choices for the client" : "Client comparison options"}</h3>
+              <p>{pricingMode === "selection"
+                ? "Add one or more groups of alternatives. The client can choose one item from each group. No prices or totals will appear in this proposal."
+                : "Group alternatives such as diya, magnet and keychain. Their prices are shown for review; the quotation total includes only the priced items above."}</p>
             </div>
             <button type="button" className="button" disabled={optionGroups.length >= 20}
               onClick={() => setOptionGroups([...optionGroups, {
@@ -374,10 +394,10 @@ export default function QuoteEditor({
                     <label>Details
                       <textarea value={option.details} onChange={(event) => updateOption(group.id, option.id, { details: event.target.value })} />
                     </label>
-                    <label>Unit price (INR)
+                    {pricingMode === "priced" && <label>Unit price (INR)
                       <input required type="number" min={0} step="0.01" value={option.unit_price}
                         onChange={(event) => updateOption(group.id, option.id, { unit_price: Number(event.target.value) })} />
-                    </label>
+                    </label>}
                   </div>
                 ))}
               </div>
@@ -389,7 +409,7 @@ export default function QuoteEditor({
           ))}
         </section>
       )}
-      <Totals {...totals} tax_mode={mode} />
+      {(isInvoice || pricingMode === "priced") && <Totals {...totals} tax_mode={mode} />}
       <label style={{ marginTop: 24 }}>
         Terms & notes visible to the client
         <textarea value={terms} onChange={(e) => setTerms(e.target.value)} />
@@ -403,7 +423,7 @@ export default function QuoteEditor({
           {error}
         </p>
       )}
-      {!isInvoice && <p className="quote-save-hint">Save the quotation to preview it and download a PDF.</p>}
+      {!isInvoice && <p className="quote-save-hint">Save the {pricingMode === "selection" ? "selection proposal" : "quotation"} to preview it and download a PDF.</p>}
       <div className="form-footer">
         <button disabled={busy || uploading} className="button primary">
           {busy
@@ -412,7 +432,7 @@ export default function QuoteEditor({
               ? "Uploading image…"
             : isInvoice
               ? "Save invoice draft"
-              : "Save quotation"}
+              : pricingMode === "selection" ? "Save selection proposal" : "Save quotation"}
         </button>
       </div>
     </form>

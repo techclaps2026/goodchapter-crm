@@ -1024,6 +1024,45 @@ tr.clickable:hover {
   color: var(--muted-foreground);
   font-size: 12px;
 }
+.quote-pricing-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.quote-pricing-mode legend {
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.quote-pricing-mode label {
+  flex: 1 1 230px;
+  display: grid;
+  grid-template-columns: 17px 1fr;
+  column-gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+.quote-pricing-mode label:has(input:checked) {
+  border-color: var(--ring);
+  background: var(--accent);
+}
+.quote-pricing-mode input[type="radio"] {
+  grid-row: span 2;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+.quote-pricing-mode small {
+  grid-column: 2;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
 .form-error {
   color: var(--destructive);
   background: #f6e6df;

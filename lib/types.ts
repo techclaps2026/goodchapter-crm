@@ -109,6 +109,7 @@ export interface Line extends LineInput {
   total: number;
 }
 export type TaxMode = "None" | "CGST/SGST" | "IGST";
+export type QuotePricingMode = "priced" | "selection";
 export interface QuoteOption {
   id: string;
   title: string;
@@ -135,6 +136,7 @@ export interface CommercialDocument {
   issued_on: string | null;
   due_on: string | null;
   tax_mode: TaxMode;
+  pricing_mode?: QuotePricingMode;
   items: Line[];
   quote_options?: QuoteOptionGroup[];
   quote_selections?: Record<string, string>;

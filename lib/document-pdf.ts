@@ -13,6 +13,7 @@ const value = (n: number) =>
   });
 export async function buildDocumentPdf(d: CommercialDocument, shareToken?: string) {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const selection = d.kind === "quote" && d.pricing_mode === "selection";
   const width = 210;
   const margin = 17;
   pdf.setFont("helvetica");
@@ -31,7 +32,7 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
     pdf.text(d.business.company_name, margin, 25);
   }
   pdf.setFontSize(10);
-  pdf.text(d.kind === "quote" ? "QUOTATION" : "INVOICE", width - margin, 21, {
+  pdf.text(selection ? "SELECTION PROPOSAL" : d.kind === "quote" ? "QUOTATION" : "INVOICE", width - margin, 21, {
     align: "right",
   });
   pdf.setFontSize(12);
@@ -95,6 +96,7 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
     y,
   );
   y += 7;
+  if (!selection) {
   autoTable(pdf, {
     startY: y,
     margin: { left: margin, right: margin, top: 20, bottom: 20 },
@@ -156,6 +158,12 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
     pdf.text(label, 120, y);
     pdf.text(n, 193, y, { align: "right" });
     y += 7;
+  }
+  } else {
+    y += 4;
+    pdf.setFontSize(9);
+    pdf.text("Choose one item from each group. A priced quotation will follow your selections.", margin, y);
+    y += 8;
   }
   const appendBlock = (heading: string, body: string) => {
     if (!body) return;
@@ -262,18 +270,18 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
       pdf.setFontSize(8);
       pdf.text(pdf.splitTextToSize(details, 125).slice(0, 3), x, y + 19);
       pdf.setFont("helvetica", "bold");
-      pdf.text(price, x, y + 38);
+      if (price) pdf.text(price, x, y + 38);
       pdf.setFont("helvetica", "normal");
       y += 48;
     };
-    newVisualPage();
+    if (!selection) newVisualPage();
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(16);
-    pdf.text("The proposed collection", margin, y);
+    pdf.text(selection ? "Explore your options" : "The proposed collection", margin, y);
     pdf.setFont("helvetica", "normal");
     y += 12;
-    heading("ITEMS IN THE QUOTED TOTAL");
-    for (const item of d.items) {
+    if (!selection) heading("ITEMS IN THE QUOTED TOTAL");
+    for (const item of selection ? [] : d.items) {
       await card(item.description, [item.details, item.moq ? `MOQ: ${item.moq} units` : "", item.notes ?? ""].filter(Boolean).join(" | "), item.image_path ?? "",
         `${item.quantity} x ${value(item.unit_price)}  |  Line total ${value(item.total)}`);
     }
@@ -281,13 +289,15 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
       heading(`${group.title.toUpperCase()}  |  ${group.quantity} PER OPTION`);
       for (const option of group.options) {
         await card(option.title, option.details, option.image_path,
-          `${value(option.unit_price)} / unit  |  ${group.quantity} units: ${value(group.quantity * Number(option.unit_price))}`);
+          selection ? "" : `${value(option.unit_price)} / unit  |  ${group.quantity} units: ${value(group.quantity * Number(option.unit_price))}`);
       }
     }
     if ((d.quote_options?.length ?? 0) > 0) {
       if (y + 12 > 270) newVisualPage();
       pdf.setFontSize(8);
-      pdf.text("Alternative option prices are for comparison. Final choices need a revised quotation.", margin, y + 3);
+      pdf.text(selection
+        ? "Your selections will be reviewed before a priced quotation is prepared."
+        : "Alternative option prices are for comparison. Final choices need a revised quotation.", margin, y + 3);
     }
   }
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {

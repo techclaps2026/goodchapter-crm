@@ -15,6 +15,7 @@ export default function SendEmail({
   const key = useRef(crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const selection = doc.kind === "quote" && doc.pricing_mode === "selection";
   return (
     <form
       className="stack"
@@ -46,18 +47,17 @@ export default function SendEmail({
         <dd>
           {doc.ref} · {doc.title} | The Good Chapter
         </dd>
-        <dt>Document total</dt>
-        <dd>{money(doc.total)}</dd>
+        {!selection && <><dt>Document total</dt>
+        <dd>{money(doc.total)}</dd></>}
       </dl>
       <div className="panel">
         <p>Hello {doc.customer.name},</p>
         <p style={{ marginTop: 12 }}>
-          Your {doc.kind === "quote" ? "quotation" : "invoice"} for {doc.title}{" "}
+          Your {selection ? "selection proposal" : doc.kind === "quote" ? "quotation" : "invoice"} for {doc.title}{" "}
           is ready.
         </p>
         <p style={{ marginTop: 12 }}>
-          The email includes the document reference, total and a link to
-          view/download the PDF.
+          The email includes the document reference{selection ? " and a link to choose items and download the PDF." : ", total and a link to view/download the PDF."}
         </p>
       </div>
       {demo && <p>Sending is disabled in the fictional local preview.</p>}

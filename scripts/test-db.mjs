@@ -112,6 +112,53 @@ await test("quotation photos and client choices survive sharing and revision", a
   assert.equal(revision.quote_options[0].options[0].id, optionId);
   assert.deepEqual(revision.quote_selections, {});
 });
+await test("selection proposals stay unpriced until a priced revision", async () => {
+  const groupId = id();
+  const selectedId = id();
+  const choices = [{ id: groupId, title: "Hamper finish", quantity: 80,
+    options: [
+      { id: selectedId, title: "Diya", details: "Hand painted", image_path: "", unit_price: 0 },
+      { id: id(), title: "Keychain", details: "Brass", image_path: "", unit_price: 0 },
+    ] }];
+  const proposal = (await call("save_quote", {
+    title: "Diwali hamper choices", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", pricing_mode: "selection",
+    items: [], quote_options: choices, terms: "Prices follow your choices",
+  })).id;
+  const saved = (await db.query("select * from documents where id=$1", [proposal])).rows[0];
+  assert.equal(saved.pricing_mode, "selection");
+  assert.equal(Number(saved.total), 0);
+  assert.equal(saved.items[0].description, "Selection proposal");
+  await assert.rejects(call("quote_status", { id: proposal, status: "Accepted" }), /priced quotation/);
+  await assert.rejects(call("save_quote", {
+    title: "Invalid priced choice", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", pricing_mode: "selection",
+    items: [], quote_options: [{ ...choices[0], options: [{ ...choices[0].options[0], unit_price: 85 }] }], terms: "",
+  }), /cannot contain prices/);
+  await call("quote_status", { id: proposal, status: "Sent" });
+  await call("share_document", { id: proposal, enabled: true });
+  const token = (await db.query("select share_token from documents where id=$1", [proposal])).rows[0].share_token;
+  const shared = await asUser(db, null, async (tx) =>
+    (await tx.query("select shared_document($1::uuid) d", [token])).rows[0].d);
+  assert.equal(shared.pricing_mode, "selection");
+  await asUser(db, null, (tx) =>
+    tx.query("select select_quote_options($1::uuid,$2::jsonb)", [token, JSON.stringify({ [groupId]: selectedId })]));
+  const revisionId = (await call("revise_quote", { id: proposal })).id;
+  const revision = (await db.query("select * from documents where id=$1", [revisionId])).rows[0];
+  assert.equal(revision.pricing_mode, "priced");
+  assert.equal(revision.items[0].description, "Diya");
+  assert.equal(revision.items[0].quantity, 80);
+  assert.equal(Number(revision.items[0].unit_price), 0);
+  assert.deepEqual(revision.quote_options, []);
+  await assert.rejects(call("quote_status", { id: revisionId, status: "Sent" }), /Add prices/);
+  await call("save_quote", {
+    id: revisionId, title: revision.title, client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", pricing_mode: "priced",
+    items: [{ ...revision.items[0], unit_price: 125 }], quote_options: [], terms: revision.terms,
+  });
+  await call("quote_status", { id: revisionId, status: "Sent" });
+  await assert.rejects(call("quote_status", { id: proposal, status: "Accepted" }), /priced quotation/);
+});
 await test("cannot convert unaccepted quotation", async () => {
   await assert.rejects(call("convert_quote", { id: quote }), /Accept/);
 });

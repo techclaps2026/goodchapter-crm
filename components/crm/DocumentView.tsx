@@ -16,6 +16,7 @@ export default function DocumentView({
   selections?: Record<string, string>;
   onSelect?: (groupId: string, optionId: string) => void;
 }) {
+  const selection = d.kind === "quote" && d.pricing_mode === "selection";
   return (
     <article className="document">
       <header>
@@ -41,7 +42,7 @@ export default function DocumentView({
         </div>
         <div className="document-meta">
           <div className="eyebrow">
-            {d.kind === "quote" ? "QUOTATION" : "INVOICE"}
+            {selection ? "SELECTION PROPOSAL" : d.kind === "quote" ? "QUOTATION" : "INVOICE"}
           </div>
           <h2 style={{ marginTop: 9 }}>{d.ref}</h2>
           <p>{d.status}</p>
@@ -75,7 +76,7 @@ export default function DocumentView({
               ? `Valid until: ${dateLabel(d.valid_until)}`
               : `Issued: ${dateLabel(d.issued_on)}\nDue: ${dateLabel(d.due_on)}`}
             <br />
-            Currency: INR · Tax: {d.tax_mode}
+            {selection ? "Pricing will follow your selections" : <>Currency: INR · Tax: {d.tax_mode}</>}
           </p>
         </div>
       </div>
@@ -83,7 +84,9 @@ export default function DocumentView({
         <section className="quote-options-view">
           <div className="eyebrow">EXPLORE YOUR OPTIONS</div>
           <h3>Choose the details that make it yours</h3>
-          <p>Option prices are shown for comparison. The quotation total below reflects the priced items; choices will be confirmed in a revised quotation.</p>
+          <p>{selection
+            ? "Choose one item from each group. We’ll prepare a priced quotation after reviewing your selections."
+            : "Option prices are shown for comparison. The quotation total below reflects the priced items; choices will be confirmed in a revised quotation."}</p>
           {d.quote_options?.map((group) => (
             <div className="quote-options-group" key={group.id}>
               <div className="row between">
@@ -101,8 +104,8 @@ export default function DocumentView({
                       <span className="quote-option-copy">
                         <strong>{option.title}</strong>
                         {option.details && <small>{option.details}</small>}
-                        <b>{money(option.unit_price)} / unit</b>
-                        <small>{group.quantity} × {money(option.unit_price)} = {money(group.quantity * Number(option.unit_price))}</small>
+                        {!selection && <><b>{money(option.unit_price)} / unit</b>
+                        <small>{group.quantity} × {money(option.unit_price)} = {money(group.quantity * Number(option.unit_price))}</small></>}
                         {onSelect ? (
                           <span className="quote-choice"><input type="radio" name={`option-${group.id}`}
                             checked={selected} onChange={() => onSelect(group.id, option.id)} /> Choose this option</span>
@@ -116,7 +119,7 @@ export default function DocumentView({
           ))}
         </section>
       )}
-      <div style={{ overflowX: "auto" }}>
+      {!selection && <><div style={{ overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
@@ -149,7 +152,7 @@ export default function DocumentView({
           </tbody>
         </table>
       </div>
-      <Totals {...d} />
+      <Totals {...d} /></>}
       <div className="divider" />
       <div className="eyebrow">TERMS</div>
       <p style={{ marginTop: 9 }}>{d.terms}</p>

@@ -138,7 +138,7 @@ const salesFlow: Record<string, string> = {
   leads: "Start with an enquiry. Capture the brief, budget and deadline; assign an owner, then create a client when the opportunity is ready.",
   clients: "Keep one record per customer for contact and billing details. Open a client to review linked enquiries, quotations, orders and follow-ups.",
   followups: "Plan the next conversation against a lead, client or order. Prioritise by due date, then mark it done after the action is complete.",
-  quotations: "Build a priced proposal with item photos, MOQ and notes. Share it for review, collect option choices, then revise and accept the final quote before creating an order.",
+  quotations: "Start with a selection proposal to collect the client’s preferred items without prices, then create a priced revision. Or build a priced quotation directly with photos, MOQ and notes before accepting it and creating an order.",
 };
 const SIDEBAR_SCROLL_KEY = "tgc-sidebar-scroll";
 type FormState =
@@ -457,8 +457,8 @@ export default function CRM({
         d.title,
       ),
       clientName(d.client_id),
-      <Badge key="status">{d.status}</Badge>,
-      money(d.total),
+      <span key="status"><Badge>{d.status}</Badge>{d.pricing_mode === "selection" && <small>Selection proposal</small>}</span>,
+      d.kind === "quote" && d.pricing_mode === "selection" ? "Pricing pending" : money(d.total),
       ...(showPayment
         ? [
             d.kind === "quote" ? (
@@ -610,6 +610,13 @@ export default function CRM({
   else if (doc) {
     const accepted = doc.status === "Accepted";
     const orderForQuote = s.orders.find((o) => o.quote_id === doc.id);
+    const awaitingPrices = doc.kind === "quote" && doc.status === "Draft" && Number(doc.total) === 0 &&
+      s.documents.some((parent) => parent.id === doc.revision_of && parent.pricing_mode === "selection");
+    const quoteStatuses = awaitingPrices
+      ? ["Draft", "Rejected"]
+      : doc.pricing_mode === "selection"
+        ? ["Draft", "Sent", "Rejected"]
+        : ["Draft", "Sent", "Accepted", "Rejected"];
     const ledger =
       doc.order_id && doc.status !== "Superseded"
         ? orderMoney(s, doc.order_id)
@@ -620,6 +627,7 @@ export default function CRM({
           <div className="row between">
             <div className="row">
               <Badge>{doc.status}</Badge>
+              {doc.pricing_mode === "selection" && <Badge>Selection proposal</Badge>}
               {doc.kind === "invoice" && ledger && (
                 <Badge>{paymentState(Number(doc.total), ledger.paid)}</Badge>
               )}
@@ -650,7 +658,7 @@ export default function CRM({
                     })
                   }
                 >
-                  Create revision
+                  {doc.pricing_mode === "selection" ? "Create priced quotation" : "Create revision"}
                 </button>
               )}
               {doc.kind === "invoice" && doc.status === "Draft" && (
@@ -706,7 +714,7 @@ export default function CRM({
                         )
                       }
                     >
-                      {["Draft", "Sent", "Accepted", "Rejected"].map((s) => (
+                      {quoteStatuses.map((s) => (
                         <option key={s}>{s}</option>
                       ))}
                     </select>
@@ -896,6 +904,7 @@ export default function CRM({
               ? " Accepted quotations are locked; revisions create a new draft."
               : ""}
           </p>
+          {awaitingPrices && <p className="quote-save-hint">The client’s selected items are ready. Edit this quotation to add prices before sending it.</p>}
         </div>
         {doc.kind === "quote" && doc.quote_selected_at && (
           <div className="quote-selection-note">
@@ -903,10 +912,12 @@ export default function CRM({
             <div>
               {(doc.quote_options ?? []).map((group) => {
                 const chosen = group.options.find((option) => option.id === doc.quote_selections?.[group.id]);
-                return chosen ? <span key={group.id}>{group.title}: {chosen.title} · {money(chosen.unit_price)} each{group.quantity > 1 ? ` × ${group.quantity}` : ""}<br /></span> : null;
+                return chosen ? <span key={group.id}>{group.title}: {chosen.title}{doc.pricing_mode !== "selection" ? ` · ${money(chosen.unit_price)} each` : ""}{group.quantity > 1 ? ` × ${group.quantity}` : ""}<br /></span> : null;
               })}
             </div>
-            <span>Review these choices, then create a revision to confirm the final quantities and total.</span>
+            <span>{doc.pricing_mode === "selection"
+              ? "Create a priced quotation from these choices, then confirm the final quantities and prices."
+              : "Review these choices, then create a revision to confirm the final quantities and total."}</span>
           </div>
         )}
         <DocumentView doc={doc} />

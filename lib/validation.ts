@@ -129,9 +129,21 @@ export const schemas = {
     lead_id: optionalId,
     valid_until: date,
     tax_mode: z.enum(["None", "CGST/SGST", "IGST"]),
-    items: z.array(line).min(1).max(100),
+    pricing_mode: z.enum(["priced", "selection"]).default("priced"),
+    items: z.array(line).max(100),
     quote_options: z.array(quoteOptionGroup).max(20).optional(),
     terms: text,
+  }).superRefine((quote, ctx) => {
+    if (quote.pricing_mode === "priced" && quote.items.length === 0)
+      ctx.addIssue({ code: "custom", path: ["items"], message: "Add at least one priced item" });
+    if (quote.pricing_mode === "selection") {
+      if (!quote.quote_options?.length)
+        ctx.addIssue({ code: "custom", path: ["quote_options"], message: "Add at least one choice group" });
+      if (quote.tax_mode !== "None")
+        ctx.addIssue({ code: "custom", path: ["tax_mode"], message: "Selection proposals cannot include tax" });
+      if (quote.quote_options?.some((group) => group.options.some((option) => option.unit_price !== 0)))
+        ctx.addIssue({ code: "custom", path: ["quote_options"], message: "Selection proposals cannot include prices" });
+    }
   }),
   quote_status: z.object({
     id,

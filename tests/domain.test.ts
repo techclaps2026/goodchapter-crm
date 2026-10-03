@@ -196,3 +196,31 @@ it("escapes customer text in email and includes no private fields", () => {
   expect(out.html).not.toContain("12345");
   expect(out.text).toContain("https://example.test/share/token");
 });
+it("does not disclose a price for selection proposals", () => {
+  const proposal = {
+    kind: "quote", pricing_mode: "selection", ref: "Q-CHOICES",
+    title: "Diwali hamper", total: 0,
+    customer: { name: "Asha" }, business: { email: "hello@example.test" },
+  } as CommercialDocument;
+  const out = documentEmail(proposal, "https://example.test/share/choices");
+  expect(out.text).toContain("send pricing");
+  expect(out.text).not.toContain("Total:");
+  expect(out.html).not.toContain("INR 0");
+});
+it("exports selection proposals without price columns or totals", async () => {
+  const { buildDocumentPdf } = await import("../lib/document-pdf");
+  const proposal = {
+    kind: "quote", pricing_mode: "selection", ref: "Q-CHOICES", title: "Diwali hamper",
+    status: "Sent", valid_until: null, tax_mode: "None", total: 0,
+    subtotal: 0, tax_amount: 0, terms: "Choose one item per group",
+    customer: { name: "Asha", organisation: "Example Co", email: "asha@example.test", billing_address: "" },
+    business: { company_name: "The Good Chapter", address: "", email: "hello@example.test", phone: "", gstin: "", upi_id: "" },
+    items: [], quote_options: [{ id: crypto.randomUUID(), title: "Finishing touch", quantity: 50,
+      options: [{ id: crypto.randomUUID(), title: "Diya", details: "Hand painted", image_path: "", unit_price: 0 }] }],
+  } as unknown as CommercialDocument;
+  const output = (await buildDocumentPdf(proposal)).output();
+  expect(output).toContain("SELECTION PROPOSAL");
+  expect(output).toContain("Diya");
+  expect(output).not.toContain("INR 0");
+  expect(output).not.toContain("TOTAL (INR)");
+});
