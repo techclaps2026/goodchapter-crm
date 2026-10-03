@@ -50,6 +50,7 @@ import SocialMedia from "./SocialMedia";
 import MailCenter from "./MailCenter";
 import { matchesVendor } from "@/lib/vendor-search";
 import { createClient } from "@/lib/supabase/client";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import CrmLoading from "./CrmLoading";
 import {
   money,
@@ -188,6 +189,7 @@ export default function CRM({
   recordId?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const pathname = usePathname();
   const [pathSection, pathRecordId] = pathname.split("/").filter(Boolean);
   const section = pathSection
@@ -265,6 +267,15 @@ export default function CRM({
       toast.error(e instanceof Error ? e.message : "Could not save");
     }
   };
+  const downloadPdf = (document: CommercialDocument) =>
+    run(async () => {
+      setPdfBusy(true);
+      try {
+        await (await import("@/lib/document-pdf")).downloadDocument(document);
+      } finally {
+        setPdfBusy(false);
+      }
+    });
   if (isLoading) return <CrmLoading />;
   if (error || !s)
     return (
@@ -363,14 +374,15 @@ export default function CRM({
         key="delete"
         className="button small danger"
         disabled={busy}
-        onClick={() => {
-          if (
-            !window.confirm(
-              `Permanently delete ${label}? Linked records must be removed first. This cannot be undone.`,
-            )
-          )
-            return;
-          run(async () => {
+        onClick={async () => {
+          const agreed = await confirm({
+            title: `Delete ${label}?`,
+            description: "Linked records must be removed first. This permanently deletes the record and cannot be undone.",
+            confirmLabel: "Delete permanently",
+            destructive: true,
+          });
+          if (!agreed) return;
+          await run(async () => {
             await mutate("delete_record", { kind, id });
             if (catalogPaths.length)
               await createClient()
@@ -436,7 +448,7 @@ export default function CRM({
         notes: f.notes,
       }),
     );
-  const documentRows = (docs: CommercialDocument[]) =>
+  const documentRows = (docs: CommercialDocument[], showPayment = false) =>
     docs.map((d) => [
       link(
         d.kind === "quote" ? "quotations" : "invoices",
@@ -447,9 +459,11 @@ export default function CRM({
       clientName(d.client_id),
       <Badge key="status">{d.status}</Badge>,
       money(d.total),
-      ...(d.kind === "invoice"
+      ...(showPayment
         ? [
-            d.status === "Superseded" ? (
+            d.kind === "quote" ? (
+              <span key="payment">—</span>
+            ) : d.status === "Superseded" ? (
               <Badge key="payment">Revised</Badge>
             ) : (
               <span key="payment">
@@ -475,6 +489,18 @@ export default function CRM({
         >
           Open <ArrowUpRight size={13} />
         </Link>
+        {d.kind === "quote" && (
+          <button
+            type="button"
+            className="button small"
+            title="Download quotation PDF"
+            aria-label={`Download ${d.ref} as PDF`}
+            disabled={pdfBusy}
+            onClick={() => downloadPdf(d)}
+          >
+            <Download size={13} /> PDF
+          </button>
+        )}
         {removeRecord(d.kind, d.id, d.ref)}
       </div>,
     ]);
@@ -654,21 +680,10 @@ export default function CRM({
               <button
                 className="button"
                 disabled={pdfBusy}
-                onClick={() =>
-                  run(async () => {
-                    setPdfBusy(true);
-                    try {
-                      await (
-                        await import("@/lib/document-pdf")
-                      ).downloadDocument(doc);
-                    } finally {
-                      setPdfBusy(false);
-                    }
-                  })
-                }
+                onClick={() => downloadPdf(doc)}
               >
                 <Download size={15} />
-                {pdfBusy ? "Preparing…" : "Download PDF"}
+                {pdfBusy ? "Preparing…" : doc.kind === "quote" ? "Download quotation PDF" : "Download PDF"}
               </button>
             </div>
           </div>
@@ -956,8 +971,8 @@ export default function CRM({
         </div>
         <h2>Quotations & invoices</h2>
         {table(
-          ["Reference", "Client", "Status", "Total", "Date", ""],
-          documentRows(s.documents.filter((d) => d.client_id === client.id)),
+          ["Reference", "Client", "Status", "Total", "Payment", "Date", ""],
+          documentRows(s.documents.filter((d) => d.client_id === client.id), true),
           "No documents yet",
         )}
         <h2>Orders</h2>
@@ -1146,6 +1161,7 @@ export default function CRM({
                   ? d.status !== "Superseded"
                   : d.status === filter,
               ),
+            kind === "invoice",
           ),
           kind === "invoice"
             ? "No invoices yet. Use Generate invoice to choose an order."

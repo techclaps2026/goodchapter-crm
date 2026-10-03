@@ -6,6 +6,7 @@ import { Bookmark, Heart, ImagePlus, Instagram, MessageCircle, MoreHorizontal, P
 import { canManageUsers, type Role } from "@/lib/types";
 import type { BufferChannel, BufferPost, BufferTag } from "@/lib/buffer";
 import { createClient } from "@/lib/supabase/client";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type SocialData = { connected: boolean; organization?: string; channels: BufferChannel[]; posts: BufferPost[]; tags: BufferTag[] };
 const mediaTypes: Record<string, { extension: string; kind: "image" | "video"; max: number }> = {
@@ -41,6 +42,7 @@ function SocialPreview({ channel, type, mediaUrl, mediaKind, caption }: { channe
   return <div className="social-feed-preview"><div className="social-feed-account"><span className="social-avatar">{name[0]?.toUpperCase()}</span><strong>{name}</strong><MoreHorizontal size={19} /></div><div className="social-feed-media">{visual}</div><div className="social-feed-actions"><Heart size={23} /><MessageCircle size={23} /><Send size={23} /><Bookmark size={23} className="social-bookmark" /></div><p><strong>{name}</strong> {caption || "Your caption appears here…"}</p><span className="social-preview-time">Preview · just now</span></div>;
 }
 export default function SocialMedia({ role, userId, demo }: { role: Role; userId: string; demo: boolean }) {
+  const confirm = useConfirm();
   const [data, setData] = useState<SocialData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -103,7 +105,11 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
     finally { setUploading(false); }
   };
   const submit = async (saveToDraft: boolean) => {
-    if (mode === "shareNow" && !saveToDraft && !window.confirm("Publish this post now?")) return;
+    if (mode === "shareNow" && !saveToDraft && !(await confirm({
+      title: "Publish this post now?",
+      description: "This sends the post to the selected social channel immediately.",
+      confirmLabel: "Publish now",
+    }))) return;
     if (!text.trim() && !imageUrl) { setError("Add a caption or media"); return; }
     if (channel?.service === "instagram" && !imageUrl) { setError("Instagram needs an image or video"); return; }
     if (channel?.service === "instagram" && postType === "post" && mediaKind !== "image") { setError("Feed posts need an image. Choose Reel for a video"); return; }
@@ -129,7 +135,12 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
     finally { setBusy(false); }
   };
   const changePost = async (post: BufferPost, remove: boolean) => {
-    if (remove && !window.confirm("Delete this scheduled post from Buffer?")) return;
+    if (remove && !(await confirm({
+      title: "Delete this scheduled post?",
+      description: "The post will be removed from Buffer's queue and cannot be recovered here.",
+      confirmLabel: "Delete post",
+      destructive: true,
+    }))) return;
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/buffer/posts/${encodeURIComponent(post.id)}`, {

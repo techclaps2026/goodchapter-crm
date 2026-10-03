@@ -67,6 +67,7 @@ export default function QuoteEditor({
       : group));
   return (
     <form
+      className="quote-editor"
       onSubmit={async (e) => {
         e.preventDefault();
         setError("");
@@ -174,9 +175,9 @@ export default function QuoteEditor({
       </div>
       <div className="divider" />
       <div className="row between">
-        <h3>Merchandise & services</h3>
+        <h3>Items & services</h3>
         <select
-          aria-label="Add product from catalogue"
+          aria-label="Add item from catalogue"
           style={{ width: 230 }}
           value=""
           onChange={(e) => {
@@ -231,11 +232,11 @@ export default function QuoteEditor({
             />
           </label>
           <label style={{ marginTop: 12 }}>
-            Sizes, colours & customisation
+            Specifications & customisation (optional)
             <textarea
               value={l.details}
               onChange={(e) => change(i, "details", e.target.value)}
-              placeholder="e.g. Sand · S: 20, M: 30, L: 25, XL: 5 · chest embroidery"
+              placeholder="e.g. Material, size, colour, finish, packaging or branding requirements"
             />
           </label>
           {!isInvoice && <div className="field-grid quote-item-extra">
@@ -402,6 +403,7 @@ export default function QuoteEditor({
           {error}
         </p>
       )}
+      {!isInvoice && <p className="quote-save-hint">Save the quotation to preview it and download a PDF.</p>}
       <div className="form-footer">
         <button disabled={busy || uploading} className="button primary">
           {busy

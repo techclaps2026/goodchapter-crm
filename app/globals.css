@@ -1006,6 +1006,24 @@ tr.clickable:hover {
 .field-grid .wide {
   grid-column: 1/-1;
 }
+.quote-editor .field-grid > label {
+  min-width: 0;
+}
+.quote-editor .field-grid input:not([type="file"]),
+.quote-editor .field-grid select,
+.quote-editor .line-editor .numbers input {
+  box-sizing: border-box;
+  min-height: 44px;
+}
+.quote-editor > .row > select {
+  min-height: 44px;
+  max-width: 100%;
+}
+.quote-save-hint {
+  margin: 18px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
 .form-error {
   color: var(--destructive);
   background: #f6e6df;
