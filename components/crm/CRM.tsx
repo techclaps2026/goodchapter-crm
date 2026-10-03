@@ -347,7 +347,7 @@ export default function CRM({
                   };
                 })()
               : { ...source, archived: !item.archived };
-          return mutate(`save_${kind}` as Action, payload);
+          return mutate(`save_${kind}` as Action, payload, `${kind[0].toUpperCase()}${kind.slice(1)} ${item.archived ? "restored" : "archived"}`);
         })
       }
     >
