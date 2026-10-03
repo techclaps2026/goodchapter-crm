@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { Role } from "@/lib/types";
 import { canManageUsers } from "@/lib/types";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 type MailSettings = {
   sender_name: string;
@@ -233,9 +234,8 @@ export default function MailIntegration({
           </label>
           <label>
             Mailbox password
-            <input
+            <PasswordInput
               required
-              type="password"
               autoComplete="current-password"
               value={mailboxPassword}
               onChange={(event) => setMailboxPassword(event.target.value)}

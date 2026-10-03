@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Client, Role } from "@/lib/types";
 import { canManageUsers } from "@/lib/types";
 import { mergeMail } from "@/lib/mail";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 type ExternalRecipient = { name: string; email: string };
 
@@ -513,9 +514,8 @@ export default function MailCenter({
           </label>
           <label>
             Mailbox password
-            <input
+            <PasswordInput
               required
-              type="password"
               autoComplete="current-password"
               value={mailboxPassword}
               onChange={(event) => setMailboxPassword(event.target.value)}

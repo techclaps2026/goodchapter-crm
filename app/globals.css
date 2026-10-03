@@ -126,6 +126,32 @@ textarea {
   color: var(--foreground);
   border-radius: var(--radius);
 }
+.password-field {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.password-field-input {
+  padding-right: 48px;
+}
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.password-toggle:hover {
+  color: var(--foreground);
+}
 textarea {
   min-height: 92px;
   resize: vertical;

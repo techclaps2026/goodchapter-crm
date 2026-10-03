@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { BufferOrganization } from "@/lib/buffer";
 import { canManageUsers, type Role } from "@/lib/types";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function BufferConnection({ role }: { role: Role }) {
   const [status, setStatus] = useState<{ connected: boolean; organization?: { organization_name: string } } | null>(null);
@@ -36,7 +37,7 @@ export default function BufferConnection({ role }: { role: Role }) {
     <p style={{ marginTop: 14 }}>{status?.connected ? `Connected to ${status.organization?.organization_name}.` : "Buffer is not connected yet."}</p>
     {canManageUsers(role) && <div className="stack" style={{ marginTop: 20, maxWidth: 620 }}>
       <label>Buffer API key
-        <input type="password" value={key} onChange={(event) => { setKey(event.target.value); setOrganizations([]); }} autoComplete="new-password" placeholder="Paste from Buffer Settings → API" />
+        <PasswordInput value={key} onChange={(event) => { setKey(event.target.value); setOrganizations([]); }} autoComplete="new-password" placeholder="Paste from Buffer Settings → API" />
       </label>
       <a className="text-link" href="https://publish.buffer.com/settings/api" target="_blank" rel="noreferrer">Open Buffer API settings ↗</a>
       <button type="button" className="button" disabled={busy || key.length < 8} onClick={() => configure(false)}>{busy ? "Checking…" : "Check key and find channels"}</button>

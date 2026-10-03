@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { canManageUsers, type Role } from "@/lib/types";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Badge } from "./shared";
 
 type Platform = "instagram" | "linkedin";
@@ -225,7 +226,7 @@ export default function SocialConnections({ role }: { role: Role }) {
                 </label>
                 <label>
                   {id === "instagram" ? "Instagram app secret" : "LinkedIn client secret"}
-                  <input name="clientSecret" type="password" required autoComplete="new-password" />
+                  <PasswordInput name="clientSecret" required autoComplete="new-password" />
                 </label>
                 <fieldset>
                   <legend>Permissions to request</legend>
