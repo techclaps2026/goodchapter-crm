@@ -19,6 +19,20 @@ type Field = {
   placeholder?: string;
 };
 const options = (a: string[]) => a.map((value) => ({ value, label: value }));
+const catalogTypes: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  csv: "text/csv",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+const catalogExtension = (file: File) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return extension === "jpeg" ? "jpg" : extension;
+};
 export default function EntityForm({
   kind,
   initial = {},
@@ -69,6 +83,8 @@ export default function EntityForm({
       name: "",
       category: "Apparel",
       subcategories: "",
+      social_links: "",
+      products_list: "",
       contact_name: "",
       email: "",
       phone: "",
@@ -196,6 +212,20 @@ export default function EntityForm({
         wide: true,
         placeholder: "Hoodies, varsity jackets, T-shirts, sweatshirts",
       },
+      {
+        key: "products_list",
+        label: "Products offered (one per line)",
+        type: "textarea",
+        wide: true,
+        placeholder: "Paste a product list from WhatsApp or a spreadsheet",
+      },
+      {
+        key: "social_links",
+        label: "Social media links / handles",
+        type: "textarea",
+        wide: true,
+        placeholder: "Instagram: https://instagram.com/…",
+      },
       { key: "contact_name", label: "Contact person" },
       { key: "city", label: "Location (city or region)" },
       { key: "email", label: "Email", type: "email" },
@@ -286,19 +316,17 @@ export default function EntityForm({
             kind === "vendor" &&
             catalogFiles.some(
               (file) =>
-                ![
-                  "application/pdf",
-                  "image/jpeg",
-                  "image/png",
-                  "image/webp",
-                ].includes(file.type) ||
+                !catalogTypes[catalogExtension(file)] ||
+                (file.type !== "" && file.type !== "application/octet-stream" &&
+                  file.type !== catalogTypes[catalogExtension(file)] &&
+                  !(catalogExtension(file) === "csv" && file.type === "application/vnd.ms-excel")) ||
                 !file.size ||
                 file.size > 10 * 1024 * 1024 ||
                 file.name.length > 200,
             )
           )
             throw new Error(
-              "Choose a PDF, JPG, PNG or WebP catalogue up to 10 MB with a shorter filename",
+              "Choose a PDF, image, CSV or Excel file up to 10 MB with a shorter filename",
             );
           const payload: Values = {};
           Object.keys(defaults[kind]).forEach((k) => (payload[k] = v[k]));
@@ -314,18 +342,13 @@ export default function EntityForm({
           }
           if (kind === "vendor" && catalogFiles.length) {
             setSavingCatalog(true);
-            const extensions: Record<string, string> = {
-              "application/pdf": "pdf",
-              "image/jpeg": "jpg",
-              "image/png": "png",
-              "image/webp": "webp",
-            };
             const db = createClient();
             const bucket = db.storage.from("vendor-catalogs");
             for (const file of catalogFiles) {
-              const path = `${r.id}/${crypto.randomUUID()}.${extensions[file.type]}`;
+              const extension = catalogExtension(file);
+              const path = `${r.id}/${crypto.randomUUID()}.${extension}`;
               const { error: uploadError } = await bucket.upload(path, file, {
-                contentType: file.type,
+                contentType: catalogTypes[extension],
                 upsert: false,
               });
               if (uploadError) throw uploadError;
@@ -421,12 +444,12 @@ export default function EntityForm({
             <input
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.csv,.xls,.xlsx"
               onChange={(event) =>
                 setCatalogFiles(Array.from(event.target.files ?? []))
               }
             />
-            <small>Choose one or more PDFs or images · up to 10 MB each</small>
+            <small>PDF, images, CSV or Excel · up to 10 MB each</small>
           </label>
           {vendorCatalogs.length > 0 && (
             <div className="wide" style={{ display: "grid", gap: 8 }}>

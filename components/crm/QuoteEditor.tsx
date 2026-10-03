@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Uploaded quotation photos are served through an authenticated route. */
 "use client";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
@@ -6,8 +7,10 @@ import type {
   Snapshot,
   TaxMode,
   LineInput,
+  QuoteOptionGroup,
 } from "@/lib/types";
 import { blankLine, priceLines, money } from "@/lib/domain";
+import { quoteImageUrl } from "@/lib/quote-images";
 import type { Mutate } from "./use-crm";
 import { Totals } from "./shared";
 export default function QuoteEditor({
@@ -34,11 +37,34 @@ export default function QuoteEditor({
   const [mode, setMode] = useState<TaxMode>(doc?.tax_mode ?? "None");
   const [terms, setTerms] = useState(doc?.terms ?? s.settings.terms);
   const [items, setItems] = useState<LineInput[]>(doc?.items ?? [blankLine()]);
+  const [optionGroups, setOptionGroups] = useState<QuoteOptionGroup[]>(doc?.quote_options ?? []);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const isInvoice = doc?.kind === "invoice";
   const totals = priceLines(items, mode);
-  const change = (i: number, key: keyof LineInput, value: string | number) =>
-    setItems(items.map((l, j) => (j === i ? { ...l, [key]: value } : l)));
+  const change = (i: number, key: keyof LineInput, value: string | number | null) =>
+    setItems((current) => current.map((l, j) => (j === i ? { ...l, [key]: value } : l)));
+  const uploadPhoto = async (file: File) => {
+    setError("");
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const response = await fetch("/api/quote-image", { method: "POST", body: form });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not upload photo");
+      return result.path as string;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not upload photo");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+  const updateOption = (groupId: string, optionId: string, values: Record<string, string | number>) =>
+    setOptionGroups((current) => current.map((group) => group.id === groupId
+      ? { ...group, options: group.options.map((option) => option.id === optionId ? { ...option, ...values } : option) }
+      : group));
   return (
     <form
       onSubmit={async (e) => {
@@ -62,6 +88,7 @@ export default function QuoteEditor({
                 valid_until: valid || null,
                 tax_mode: mode,
                 items,
+                quote_options: optionGroups,
                 terms,
               });
           onDone(result.id);
@@ -211,6 +238,31 @@ export default function QuoteEditor({
               placeholder="e.g. Sand · S: 20, M: 30, L: 25, XL: 5 · chest embroidery"
             />
           </label>
+          {!isInvoice && <div className="field-grid quote-item-extra">
+            <label>Minimum order quantity (optional)
+              <input type="number" min={1} step={1} value={l.moq ?? ""} placeholder="e.g. 100"
+                onChange={(e) => change(i, "moq", e.target.value ? Number(e.target.value) : null)} />
+            </label>
+            <label>Item notes (optional)
+              <textarea value={l.notes ?? ""} placeholder="Lead time, packaging or other details for this item"
+                onChange={(e) => change(i, "notes", e.target.value)} />
+            </label>
+          </div>}
+          <div className="quote-photo-input">
+            {l.image_path && <img src={quoteImageUrl(l.image_path)} alt={l.description || `Item ${i + 1}`} />}
+            <label>
+              Item photo (optional)
+              <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  const path = await uploadPhoto(file);
+                  if (path) change(i, "image_path", path);
+                  event.target.value = "";
+                }} />
+            </label>
+            {l.image_path && <button type="button" className="text-link" onClick={() => change(i, "image_path", "")}>Remove photo</button>}
+          </div>
           <div className="numbers">
             {[
               ["quantity", "Quantity", 1],
@@ -234,7 +286,7 @@ export default function QuoteEditor({
                   value={
                     key === "tax_rate" && mode === "None"
                       ? 0
-                      : l[key as keyof LineInput]
+                      : (l[key as keyof LineInput] ?? "")
                   }
                   onChange={(e) =>
                     change(i, key as keyof LineInput, Number(e.target.value))
@@ -263,6 +315,79 @@ export default function QuoteEditor({
         <Plus size={15} />
         Custom item / charge
       </button>
+      {!isInvoice && (
+        <section className="quote-options-editor">
+          <div className="row between">
+            <div>
+              <h3>Client comparison options</h3>
+              <p>Group alternatives such as diya, magnet and keychain. Their prices are shown for review; the quotation total includes only the priced items above.</p>
+            </div>
+            <button type="button" className="button" disabled={optionGroups.length >= 20}
+              onClick={() => setOptionGroups([...optionGroups, {
+                id: crypto.randomUUID(), title: "", quantity: 1,
+                options: [{ id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }],
+              }])}>
+              <Plus size={15} /> Add option group
+            </button>
+          </div>
+          {optionGroups.map((group, groupIndex) => (
+            <div className="quote-option-group-editor" key={group.id}>
+              <div className="row between">
+                <strong>Group {groupIndex + 1}</strong>
+                <button type="button" className="icon-button" aria-label={`Remove group ${groupIndex + 1}`}
+                  onClick={() => setOptionGroups(optionGroups.filter((entry) => entry.id !== group.id))}><Trash2 size={15} /></button>
+              </div>
+              <div className="field-grid">
+                <label>Choice category
+                  <input required value={group.title} placeholder="e.g. Diwali hamper add-on"
+                    onChange={(event) => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? { ...entry, title: event.target.value } : entry))} />
+                </label>
+                <label>Quantity per option
+                  <input required type="number" min={1} max={1000000} value={group.quantity}
+                    onChange={(event) => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? { ...entry, quantity: Number(event.target.value) } : entry))} />
+                </label>
+              </div>
+              <div className="quote-option-grid">
+                {group.options.map((option, optionIndex) => (
+                  <div className="quote-option-editor" key={option.id}>
+                    <div className="row between"><span className="eyebrow">OPTION {optionIndex + 1}</span>
+                      <button type="button" className="icon-button" aria-label={`Remove option ${optionIndex + 1}`}
+                        disabled={group.options.length === 1}
+                        onClick={() => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? { ...entry, options: entry.options.filter((item) => item.id !== option.id) } : entry))}><Trash2 size={15} /></button>
+                    </div>
+                    {option.image_path && <img className="quote-option-thumb" src={quoteImageUrl(option.image_path)} alt={option.title || `Option ${optionIndex + 1}`} />}
+                    <label>Photo
+                      <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          const path = await uploadPhoto(file);
+                          if (path) updateOption(group.id, option.id, { image_path: path });
+                          event.target.value = "";
+                        }} />
+                    </label>
+                    <label>Option name
+                      <input required value={option.title} placeholder="e.g. Hand-painted diya"
+                        onChange={(event) => updateOption(group.id, option.id, { title: event.target.value })} />
+                    </label>
+                    <label>Details
+                      <textarea value={option.details} onChange={(event) => updateOption(group.id, option.id, { details: event.target.value })} />
+                    </label>
+                    <label>Unit price (INR)
+                      <input required type="number" min={0} step="0.01" value={option.unit_price}
+                        onChange={(event) => updateOption(group.id, option.id, { unit_price: Number(event.target.value) })} />
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="button small" disabled={group.options.length >= 8}
+                onClick={() => setOptionGroups(optionGroups.map((entry) => entry.id === group.id ? {
+                  ...entry, options: [...entry.options, { id: crypto.randomUUID(), title: "", details: "", image_path: "", unit_price: 0 }],
+                } : entry))}><Plus size={14} /> Add another option</button>
+            </div>
+          ))}
+        </section>
+      )}
       <Totals {...totals} tax_mode={mode} />
       <label style={{ marginTop: 24 }}>
         Terms & notes visible to the client
@@ -278,9 +403,11 @@ export default function QuoteEditor({
         </p>
       )}
       <div className="form-footer">
-        <button disabled={busy} className="button primary">
+        <button disabled={busy || uploading} className="button primary">
           {busy
             ? "Saving…"
+            : uploading
+              ? "Uploading image…"
             : isInvoice
               ? "Save invoice draft"
               : "Save quotation"}

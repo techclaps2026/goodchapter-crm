@@ -26,6 +26,22 @@ const line = z.object({
   hsn: text.max(20),
   details: text,
   category: name,
+  image_path: z.union([z.literal(""), z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/)]).optional(),
+  moq: z.number().int().min(1).max(1000000).nullable().optional(),
+  notes: text.max(1000).optional(),
+});
+const quoteOption = z.object({
+  id,
+  title: name.max(120),
+  details: text.max(1000),
+  image_path: z.union([z.literal(""), z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/)]),
+  unit_price: amount,
+});
+const quoteOptionGroup = z.object({
+  id,
+  title: name.max(120),
+  quantity: z.number().int().min(1).max(1000000),
+  options: z.array(quoteOption).min(1).max(8),
 });
 export const schemas = {
   save_client: z.object({
@@ -85,6 +101,8 @@ export const schemas = {
     name,
     category: name,
     subcategories: text.max(2000).optional(),
+    social_links: text.max(3000).optional(),
+    products_list: text.max(5000).optional(),
     contact_name: text,
     email,
     phone: text,
@@ -112,6 +130,7 @@ export const schemas = {
     valid_until: date,
     tax_mode: z.enum(["None", "CGST/SGST", "IGST"]),
     items: z.array(line).min(1).max(100),
+    quote_options: z.array(quoteOptionGroup).max(20).optional(),
     terms: text,
   }),
   quote_status: z.object({

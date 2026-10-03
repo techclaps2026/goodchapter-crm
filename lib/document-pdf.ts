@@ -4,13 +4,14 @@ import type { CommercialDocument } from "./types";
 import { dateLabel } from "./domain";
 import { invoiceUpiUri } from "./payment-qr";
 import QRCode from "qrcode";
+import { quoteImageUrl } from "./quote-images";
 const value = (n: number) =>
   "INR " +
   Number(n).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-export async function buildDocumentPdf(d: CommercialDocument) {
+export async function buildDocumentPdf(d: CommercialDocument, shareToken?: string) {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const width = 210;
   const margin = 17;
@@ -101,7 +102,8 @@ export async function buildDocumentPdf(d: CommercialDocument) {
       ["Description / HSN", "Qty", "Unit (INR)", "Disc.", "Tax", "Total (INR)"],
     ],
     body: d.items.map((i) => [
-      [i.description, i.details, i.hsn ? "HSN/SAC: " + i.hsn : ""]
+      [i.description, i.details, i.hsn ? "HSN/SAC: " + i.hsn : "",
+        i.moq ? "MOQ: " + i.moq + " units" : "", i.notes ? "Note: " + i.notes : ""]
         .filter(Boolean)
         .join("\n"),
       i.quantity,
@@ -203,6 +205,91 @@ export async function buildDocumentPdf(d: CommercialDocument) {
     pdf.text("Confirm payment with The Good Chapter.", margin + 40, y + 21);
     y += 38;
   }
+  if (d.kind === "quote" && (d.items.some((item) => item.image_path) || (d.quote_options?.length ?? 0) > 0)) {
+    const loadPhoto = async (path: string) => {
+      try {
+        const response = await fetch(quoteImageUrl(path, shareToken));
+        if (!response.ok) return null;
+        const url = URL.createObjectURL(await response.blob());
+        try {
+          const image = new Image();
+          image.src = url;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+          canvas.width = Math.round(image.naturalWidth * scale);
+          canvas.height = Math.round(image.naturalHeight * scale);
+          canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+          return { data: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height };
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      } catch {
+        return null;
+      }
+    };
+    const newVisualPage = () => {
+      pdf.addPage();
+      y = 22;
+    };
+    const heading = (label: string) => {
+      if (y > 244) newVisualPage();
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(11);
+      pdf.text(label, margin, y);
+      pdf.setFont("helvetica", "normal");
+      y += 8;
+    };
+    const card = async (title: string, details: string, imagePath: string, price: string) => {
+      if (y + 48 > 270) newVisualPage();
+      pdf.setDrawColor(222, 216, 204);
+      pdf.rect(margin, y, 176, 44);
+      if (imagePath) {
+        const image = await loadPhoto(imagePath);
+        if (image) {
+          const scale = Math.min(38 / image.width, 38 / image.height);
+          const imageWidth = image.width * scale;
+          const imageHeight = image.height * scale;
+          pdf.addImage(image.data, "PNG", margin + 3 + (38 - imageWidth) / 2,
+            y + 3 + (38 - imageHeight) / 2, imageWidth, imageHeight);
+        }
+      }
+      const x = margin + 46;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.text(pdf.splitTextToSize(title, 125).slice(0, 2), x, y + 8);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(pdf.splitTextToSize(details, 125).slice(0, 3), x, y + 19);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(price, x, y + 38);
+      pdf.setFont("helvetica", "normal");
+      y += 48;
+    };
+    newVisualPage();
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("The proposed collection", margin, y);
+    pdf.setFont("helvetica", "normal");
+    y += 12;
+    heading("ITEMS IN THE QUOTED TOTAL");
+    for (const item of d.items) {
+      await card(item.description, [item.details, item.moq ? `MOQ: ${item.moq} units` : "", item.notes ?? ""].filter(Boolean).join(" | "), item.image_path ?? "",
+        `${item.quantity} x ${value(item.unit_price)}  |  Line total ${value(item.total)}`);
+    }
+    for (const group of d.quote_options ?? []) {
+      heading(`${group.title.toUpperCase()}  |  ${group.quantity} PER OPTION`);
+      for (const option of group.options) {
+        await card(option.title, option.details, option.image_path,
+          `${value(option.unit_price)} / unit  |  ${group.quantity} units: ${value(group.quantity * Number(option.unit_price))}`);
+      }
+    }
+    if ((d.quote_options?.length ?? 0) > 0) {
+      if (y + 12 > 270) newVisualPage();
+      pdf.setFontSize(8);
+      pdf.text("Alternative option prices are for comparison. Final choices need a revised quotation.", margin, y + 3);
+    }
+  }
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page);
     pdf.setTextColor(110, 103, 94);
@@ -214,7 +301,7 @@ export async function buildDocumentPdf(d: CommercialDocument) {
   }
   return pdf;
 }
-export async function downloadDocument(d: CommercialDocument) {
-  const pdf = await buildDocumentPdf(d);
+export async function downloadDocument(d: CommercialDocument, shareToken?: string) {
+  const pdf = await buildDocumentPdf(d, shareToken);
   pdf.save(d.ref + ".pdf");
 }

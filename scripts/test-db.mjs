@@ -63,6 +63,55 @@ await test("database recomputes money and strips private line fields", async () 
   assert.equal(d.items[0].cost, undefined);
   assert.equal(d.customer.notes, undefined);
 });
+await test("quotation photos and client choices survive sharing and revision", async () => {
+  const path = `${OWNER}/${id()}.png`;
+  const groupId = id();
+  const optionId = id();
+  const options = [{
+    id: groupId, title: "Diwali hamper finishing touch", quantity: 80,
+    options: [{ id: optionId, title: "Hand painted diya", details: "Assorted colours",
+      image_path: path, unit_price: 85 }],
+  }];
+  await assert.rejects(call("save_quote", {
+    title: "Missing photo", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [line],
+    quote_options: options, terms: "",
+  }), /Invalid quotation option/);
+  await db.query("insert into storage.objects(bucket_id,name) values('quote-options',$1)", [path]);
+  const q = (await call("save_quote", {
+    title: "Diwali hamper", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None",
+    items: [{ ...line, image_path: path, moq: 50, notes: "Lead time: two weeks" }],
+    quote_options: options, terms: "",
+  })).id;
+  const saved = (await db.query("select * from documents where id=$1", [q])).rows[0];
+  assert.equal(saved.items[0].image_path, path);
+  assert.equal(saved.items[0].moq, 50);
+  assert.equal(saved.items[0].notes, "Lead time: two weeks");
+  assert.equal(saved.quote_options[0].options[0].image_path, path);
+  assert.equal(Number(saved.total), 46800);
+  await call("quote_status", { id: q, status: "Sent" });
+  await call("share_document", { id: q, enabled: true });
+  const token = (await db.query("select share_token from documents where id=$1", [q])).rows[0].share_token;
+  const shared = (await asUser(db, null, async (tx) =>
+    (await tx.query("select shared_document($1::uuid) d", [token])).rows[0].d
+  ));
+  assert.equal(shared.quote_options[0].options[0].title, "Hand painted diya");
+  await assert.rejects(asUser(db, null, (tx) =>
+    tx.query("select select_quote_options($1::uuid,$2::jsonb)", [token, JSON.stringify({ [groupId]: id() })])
+  ), /Choose one option/);
+  await asUser(db, null, (tx) =>
+    tx.query("select select_quote_options($1::uuid,$2::jsonb)", [token, JSON.stringify({ [groupId]: optionId })])
+  );
+  const chosen = (await db.query("select total,quote_selections,quote_selected_at from documents where id=$1", [q])).rows[0];
+  assert.equal(chosen.quote_selections[groupId], optionId);
+  assert.ok(chosen.quote_selected_at);
+  assert.equal(Number(chosen.total), Number(saved.total));
+  const revisionId = (await call("revise_quote", { id: q })).id;
+  const revision = (await db.query("select quote_options,quote_selections from documents where id=$1", [revisionId])).rows[0];
+  assert.equal(revision.quote_options[0].options[0].id, optionId);
+  assert.deepEqual(revision.quote_selections, {});
+});
 await test("cannot convert unaccepted quotation", async () => {
   await assert.rejects(call("convert_quote", { id: quote }), /Accept/);
 });
@@ -941,12 +990,15 @@ await test("vendor products and private catalogue require a real upload", async 
   const vendorId = (await call("save_vendor", {
     name: "Example apparel maker", category: "Apparel",
     subcategories: "Hoodies, varsity jackets, T-shirts, sweatshirts",
+    social_links: "Instagram: @examplemaker", products_list: "Hoodies\nCandles",
     contact_name: "", email: "", phone: "", city: "Delhi NCR", notes: "",
   })).id;
   const saved = (await asUser(db, OWNER, (tx) =>
-    tx.query("select subcategories,city,catalog_path from vendors where id=$1", [vendorId])
+    tx.query("select subcategories,city,catalog_path,social_links,products_list from vendors where id=$1", [vendorId])
   )).rows[0];
   assert.match(saved.subcategories, /Hoodies/);
+  assert.match(saved.social_links, /Instagram/);
+  assert.match(saved.products_list, /Candles/);
   assert.equal(saved.city, "Delhi NCR");
   assert.equal(saved.catalog_path, "");
   const path = `${vendorId}/${id()}.pdf`;
@@ -968,16 +1020,20 @@ await test("vendor products and private catalogue require a real upload", async 
   assert.equal((await db.query("select catalog_path from vendors where id=$1", [vendorId])).rows[0].catalog_path, "");
   const pdfPath = `${vendorId}/${id()}.pdf`;
   const imagePath = `${vendorId}/${id()}.png`;
-  await db.query("insert into storage.objects(bucket_id,name) values('vendor-catalogs',$1),('vendor-catalogs',$2)", [pdfPath, imagePath]);
+  const sheetPath = `${vendorId}/${id()}.xlsx`;
+  await db.query("insert into storage.objects(bucket_id,name) values('vendor-catalogs',$1),('vendor-catalogs',$2),('vendor-catalogs',$3)", [pdfPath, imagePath, sheetPath]);
   const first = (await asUser(db, OWNER, (tx) =>
     tx.query("select add_vendor_catalog($1,$2,$3) as id", [vendorId, pdfPath, "Lookbook.pdf"])
   )).rows[0].id;
-  const second = (await asUser(db, OWNER, (tx) =>
+  await asUser(db, OWNER, (tx) =>
     tx.query("select add_vendor_catalog($1,$2,$3) as id", [vendorId, imagePath, "Pricing.png"])
-  )).rows[0].id;
+  );
+  await asUser(db, OWNER, (tx) =>
+    tx.query("select add_vendor_catalog($1,$2,$3)", [vendorId, sheetPath, "Products.xlsx"])
+  );
   assert.equal((await asUser(db, OWNER, (tx) =>
     tx.query("select * from vendor_catalogs where vendor_id=$1", [vendorId])
-  )).rows.length, 2);
+  )).rows.length, 3);
   await assert.rejects(asUser(db, OWNER, (tx) =>
     tx.query("select add_vendor_catalog($1,$2,$3)", [id(), pdfPath, "Wrong vendor.pdf"])
   ), /Vendor not found/);
@@ -988,7 +1044,7 @@ await test("vendor products and private catalogue require a real upload", async 
     tx.query("select remove_vendor_catalog($1) as path", [first])
   )).rows[0].path;
   assert.equal(removed, pdfPath);
-  assert.deepEqual((await db.query("select id from vendor_catalogs where vendor_id=$1", [vendorId])).rows.map((row) => row.id), [second]);
+  assert.equal((await db.query("select id from vendor_catalogs where vendor_id=$1", [vendorId])).rows.length, 2);
 });
 await test("invoice QR requires a configured UPI ID and manager access", async () => {
   const invoice = (await db.query("select id from documents where kind='invoice' and status in ('Draft','Issued') limit 1")).rows[0];

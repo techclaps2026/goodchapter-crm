@@ -7,6 +7,8 @@ const vendor: Vendor = {
   name: "Example Maker",
   category: "Diaries & stationery",
   subcategories: "Hoodies, varsity jackets, T-shirts, sweatshirts",
+  social_links: "",
+  products_list: "",
   contact_name: "",
   email: "",
   phone: "",

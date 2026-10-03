@@ -10,5 +10,5 @@ export default async function Page({
   const { token } = await params;
   const doc = await sharedDocument(token);
   if (!doc) notFound();
-  return <SharedDocument doc={doc} />;
+  return <SharedDocument doc={doc} token={token} />;
 }

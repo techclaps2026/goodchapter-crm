@@ -72,6 +72,8 @@ export interface Vendor {
   name: string;
   category: string;
   subcategories: string;
+  social_links: string;
+  products_list: string;
   contact_name: string;
   email: string;
   phone: string;
@@ -97,6 +99,9 @@ export interface LineInput {
   hsn: string;
   details: string;
   category: string;
+  image_path?: string;
+  moq?: number | null;
+  notes?: string;
 }
 export interface Line extends LineInput {
   subtotal: number;
@@ -104,6 +109,19 @@ export interface Line extends LineInput {
   total: number;
 }
 export type TaxMode = "None" | "CGST/SGST" | "IGST";
+export interface QuoteOption {
+  id: string;
+  title: string;
+  details: string;
+  image_path: string;
+  unit_price: number;
+}
+export interface QuoteOptionGroup {
+  id: string;
+  title: string;
+  quantity: number;
+  options: QuoteOption[];
+}
 export interface CommercialDocument {
   id: string;
   kind: "quote" | "invoice";
@@ -118,6 +136,9 @@ export interface CommercialDocument {
   due_on: string | null;
   tax_mode: TaxMode;
   items: Line[];
+  quote_options?: QuoteOptionGroup[];
+  quote_selections?: Record<string, string>;
+  quote_selected_at?: string | null;
   subtotal: number;
   tax_amount: number;
   total: number;

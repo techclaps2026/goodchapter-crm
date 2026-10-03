@@ -133,6 +133,12 @@ const descriptions: Record<string, string> = {
   social: "Create, schedule and manage your social posts.",
   mail: "Send thoughtful mailshots and follow each conversation.",
 };
+const salesFlow: Record<string, string> = {
+  leads: "Start with an enquiry. Capture the brief, budget and deadline; assign an owner, then create a client when the opportunity is ready.",
+  clients: "Keep one record per customer for contact and billing details. Open a client to review linked enquiries, quotations, orders and follow-ups.",
+  followups: "Plan the next conversation against a lead, client or order. Prioritise by due date, then mark it done after the action is complete.",
+  quotations: "Build a priced proposal with item photos, MOQ and notes. Share it for review, collect option choices, then revise and accept the final quote before creating an order.",
+};
 const SIDEBAR_SCROLL_KEY = "tgc-sidebar-scroll";
 type FormState =
   | {
@@ -560,7 +566,6 @@ export default function CRM({
             ))}
           </select>
         )}
-        <span className="eyebrow">THE GOOD CHAPTER CRM</span>
       </div>
     </div>
   );
@@ -877,6 +882,18 @@ export default function CRM({
               : ""}
           </p>
         </div>
+        {doc.kind === "quote" && doc.quote_selected_at && (
+          <div className="quote-selection-note">
+            <strong>Client choices received · {dateLabel(doc.quote_selected_at)}</strong>
+            <div>
+              {(doc.quote_options ?? []).map((group) => {
+                const chosen = group.options.find((option) => option.id === doc.quote_selections?.[group.id]);
+                return chosen ? <span key={group.id}>{group.title}: {chosen.title} · {money(chosen.unit_price)} each{group.quantity > 1 ? ` × ${group.quantity}` : ""}<br /></span> : null;
+              })}
+            </div>
+            <span>Review these choices, then create a revision to confirm the final quantities and total.</span>
+          </div>
+        )}
         <DocumentView doc={doc} />
       </div>
     );
@@ -1260,12 +1277,22 @@ export default function CRM({
               <span key="speciality">
                 {v.category}
                 <small>{v.subcategories || "—"}</small>
+                {v.products_list && (
+                  <small style={{ whiteSpace: "pre-wrap" }}>
+                    {v.products_list}
+                  </small>
+                )}
               </span>,
               <span key="c">
                 {v.contact_name}
                 <small>
                   {v.email} {v.phone}
                 </small>
+                {v.social_links && (
+                  <small style={{ whiteSpace: "pre-wrap" }}>
+                    {v.social_links}
+                  </small>
+                )}
               </span>,
               v.city,
               <div key="catalogs" style={{ display: "grid", gap: 4 }}>
@@ -1594,6 +1621,9 @@ export default function CRM({
             </div>
             <div className="row">{actions}</div>
           </header>
+          {!recordId && salesFlow[section] && (
+            <aside className="sales-flow-note" aria-label={`${titles[section]} workflow`}>{salesFlow[section]}</aside>
+          )}
           {body}
         </main>
       </div>

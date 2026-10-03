@@ -4,7 +4,18 @@ import type { CommercialDocument } from "@/lib/types";
 import { dateLabel, money } from "@/lib/domain";
 import { Totals } from "./shared";
 import PaymentQr from "./PaymentQr";
-export default function DocumentView({ doc: d }: { doc: CommercialDocument }) {
+import { quoteImageUrl } from "@/lib/quote-images";
+export default function DocumentView({
+  doc: d,
+  shareToken,
+  selections,
+  onSelect,
+}: {
+  doc: CommercialDocument;
+  shareToken?: string;
+  selections?: Record<string, string>;
+  onSelect?: (groupId: string, optionId: string) => void;
+}) {
   return (
     <article className="document">
       <header>
@@ -68,6 +79,43 @@ export default function DocumentView({ doc: d }: { doc: CommercialDocument }) {
           </p>
         </div>
       </div>
+      {d.kind === "quote" && (d.quote_options?.length ?? 0) > 0 && (
+        <section className="quote-options-view">
+          <div className="eyebrow">EXPLORE YOUR OPTIONS</div>
+          <h3>Choose the details that make it yours</h3>
+          <p>Option prices are shown for comparison. The quotation total below reflects the priced items; choices will be confirmed in a revised quotation.</p>
+          {d.quote_options?.map((group) => (
+            <div className="quote-options-group" key={group.id}>
+              <div className="row between">
+                <h4>{group.title}</h4>
+                <span>{group.quantity} per option</span>
+              </div>
+              <div className="quote-option-grid">
+                {group.options.map((option) => {
+                  const selected = (selections ?? d.quote_selections)?.[group.id] === option.id;
+                  return (
+                    <label className={`quote-option-card${selected ? " selected" : ""}`} key={option.id}>
+                      {option.image_path ? (
+                        <img src={quoteImageUrl(option.image_path, shareToken)} alt={option.title} />
+                      ) : <div className="quote-option-placeholder">Product photo pending</div>}
+                      <span className="quote-option-copy">
+                        <strong>{option.title}</strong>
+                        {option.details && <small>{option.details}</small>}
+                        <b>{money(option.unit_price)} / unit</b>
+                        <small>{group.quantity} × {money(option.unit_price)} = {money(group.quantity * Number(option.unit_price))}</small>
+                        {onSelect ? (
+                          <span className="quote-choice"><input type="radio" name={`option-${group.id}`}
+                            checked={selected} onChange={() => onSelect(group.id, option.id)} /> Choose this option</span>
+                        ) : selected ? <span className="quote-choice">Client selected</span> : null}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
       <div style={{ overflowX: "auto" }}>
         <table>
           <thead>
@@ -84,9 +132,12 @@ export default function DocumentView({ doc: d }: { doc: CommercialDocument }) {
             {d.items.map((i, n) => (
               <tr key={n}>
                 <td>
+                  {i.image_path && <img className="document-item-photo" src={quoteImageUrl(i.image_path, shareToken)} alt={i.description} />}
                   <strong>{i.description}</strong>
                   <small style={{ whiteSpace: "pre-wrap" }}>{i.details}</small>
                   {i.hsn && <small>HSN/SAC {i.hsn}</small>}
+                  {i.moq && <small>MOQ: {i.moq} units</small>}
+                  {i.notes && <small>Note: {i.notes}</small>}
                 </td>
                 <td>{i.quantity}</td>
                 <td>{money(i.unit_price)}</td>

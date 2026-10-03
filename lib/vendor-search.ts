@@ -29,6 +29,7 @@ export function matchesVendor(vendor: Vendor, query: string) {
     vendor.name,
     vendor.category,
     vendor.subcategories,
+    vendor.products_list,
     vendor.city,
     vendor.notes,
   ].flatMap(searchableWords);

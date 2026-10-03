@@ -84,4 +84,7 @@ export const blankLine = (): LineInput => ({
   hsn: "",
   details: "",
   category: "Other",
+  image_path: "",
+  moq: null,
+  notes: "",
 });

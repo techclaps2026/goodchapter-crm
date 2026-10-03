@@ -837,9 +837,12 @@ tr.clickable:hover {
 .search svg {
   position: absolute;
   left: 12px;
-  top: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--muted-foreground);
   width: 15px;
+  height: 15px;
+  pointer-events: none;
 }
 .search input {
   padding-left: 36px;
@@ -1027,6 +1030,21 @@ tr.clickable:hover {
   gap: 12px;
   margin-top: 12px;
 }
+.quote-photo-input { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.quote-item-extra { margin-top: 12px; }
+.quote-photo-input > img { width: 76px; height: 76px; object-fit: contain; border: 1px solid var(--border); background: #fff; }
+.quote-photo-input > label { flex: 1 1 220px; min-width: 0; }
+.quote-options-editor { margin: 30px 0; padding-top: 26px; border-top: 1px solid var(--border); }
+.quote-options-editor > .row { align-items: flex-start; flex-wrap: wrap; }
+.quote-options-editor p { max-width: 660px; margin: 7px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.6; }
+.quote-option-group-editor { margin-top: 18px; padding: 20px; border: 1px solid var(--border); background: #fbfaf8; }
+.quote-option-group-editor .field-grid { margin: 16px 0; }
+.quote-option-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; }
+.quote-option-editor { display: grid; align-content: start; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--border); background: #fff; }
+.quote-option-editor label { min-width: 0; }
+.quote-option-editor input[type="file"] { max-width: 100%; font-size: 12px; }
+.quote-option-thumb { display: block; width: 100%; height: 150px; object-fit: contain; border: 1px solid var(--border); }
+.quote-option-group-editor > .button { margin-top: 14px; }
 .totals {
   margin-left: auto;
   max-width: 350px;
@@ -1179,6 +1197,29 @@ tr.clickable:hover {
   gap: 25px;
   margin: 24px 0;
 }
+.document .document-item-photo { display: block; width: 96px; height: 96px; max-width: 96px; object-fit: contain; margin-bottom: 9px; }
+.quote-options-view { margin: 28px 0 34px; padding-top: 22px; border-top: 1px solid var(--border); }
+.quote-options-view > h3 { margin: 8px 0; font-size: 20px; }
+.quote-options-view > p { max-width: 610px; line-height: 1.5; color: #71685e; }
+.quote-options-group { margin-top: 22px; }
+.quote-options-group > .row { gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 9px; margin-bottom: 12px; }
+.quote-options-group h4 { margin: 0; font-size: 15px; }
+.quote-options-group > .row span { color: #71685e; font-size: 12px; }
+.document .quote-option-card { display: block; min-width: 0; padding: 10px; border: 1px solid var(--border); background: #fff; color: inherit; cursor: default; }
+.document .quote-option-card:has(input) { cursor: pointer; }
+.document .quote-option-card.selected { border-color: var(--secondary); box-shadow: inset 0 0 0 1px var(--secondary); }
+.document .quote-option-card img { display: block; width: 100%; max-width: none; height: 150px; object-fit: contain; background: #faf8f4; }
+.quote-option-placeholder { display: grid; place-items: center; height: 150px; background: #f3efe8; color: #766e64; font-size: 11px; }
+.quote-option-copy { display: grid; align-content: start; gap: 6px; padding: 12px 3px 3px; }
+.quote-option-copy strong { font-size: 13px; }
+.quote-option-copy b { color: var(--secondary); font-size: 14px; }
+.quote-option-copy small { white-space: pre-wrap; color: #71685e; line-height: 1.4; }
+.quote-choice { display: flex; align-items: center; gap: 7px; margin-top: 5px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--secondary); font-size: 12px; font-weight: 700; }
+.quote-choice input { width: 16px; height: 16px; margin: 0; }
+.quote-choice-submit { max-width: 900px; margin: 20px auto 50px; padding: 20px; border: 1px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.quote-choice-submit p { max-width: 580px; margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
+.quote-selection-note { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); background: #f4eee4; font-size: 12px; line-height: 1.5; }
+.sales-flow-note { margin: -3px 0 22px; padding: 13px 16px; border-left: 2px solid var(--secondary); background: #f7f3ec; color: #5d554c; font-size: 12px; line-height: 1.6; }
 .invoice-payment-qr {
   border-top: 1px solid var(--border);
   margin-top: 20px;
@@ -1309,6 +1350,8 @@ tr.clickable:hover {
   .line-editor .numbers {
     grid-template-columns: 1fr 1fr;
   }
+  .quote-option-group-editor { padding: 14px; }
+  .quote-option-grid { grid-template-columns: minmax(0, 1fr); }
   .toolbar {
     align-items: stretch;
     flex-direction: column;
