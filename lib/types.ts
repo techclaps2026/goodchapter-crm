@@ -183,6 +183,30 @@ export interface Artwork {
   approved_at: string | null;
   approved_by: string | null;
 }
+export interface OrderSizeEntry {
+  id: string;
+  item: string;
+  name: string;
+  phone: string;
+  print_name: string;
+  size: string;
+}
+export interface OrderSizeForm {
+  order_id: string;
+  share_token: string;
+  enabled: boolean;
+  items: string[];
+  entries: OrderSizeEntry[];
+  version: number;
+  updated_at: string;
+}
+export interface SharedOrderSizes {
+  order_ref: string;
+  title: string;
+  items: string[];
+  entries: OrderSizeEntry[];
+  version: number;
+}
 export interface Followup {
   id: string;
   title: string;
@@ -218,6 +242,7 @@ export interface Snapshot {
   documents: CommercialDocument[];
   orders: Order[];
   artwork: Artwork[];
+  order_size_forms: OrderSizeForm[];
   followups: Followup[];
   payments: Payment[];
   order_vendors: {

@@ -1,12 +1,16 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Upload, FileText, ExternalLink } from "lucide-react";
+import { Upload, FileText, ExternalLink, Download, Copy } from "lucide-react";
 import type { Snapshot, Order } from "@/lib/types";
 import { ORDER_STAGES, hasOwnerAccess } from "@/lib/types";
 import { money, orderMoney, dateLabel } from "@/lib/domain";
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
+import { orderSizesWorkbook } from "@/lib/order-sizes";
+const subscribeOrigin = () => () => {};
+const clientOrigin = () => window.location.origin;
+const serverOrigin = () => "";
 export default function OrderDetail({
   s,
   order: o,
@@ -30,19 +34,73 @@ export default function OrderDetail({
     {},
   );
   const [uploading, setUploading] = useState(false);
+  const sizeForm = s.order_size_forms.find(
+    (record) => record.order_id === o.id,
+  );
+  const [sizeItems, setSizeItems] = useState(sizeForm?.items.join("\n") ?? "");
+  const [sizeBusy, setSizeBusy] = useState(false);
+  const [sizeMessage, setSizeMessage] = useState("");
+  const [sizeError, setSizeError] = useState("");
+  const sizeOrigin = useSyncExternalStore(
+    subscribeOrigin,
+    clientOrigin,
+    serverOrigin,
+  );
   const uploadKey = useRef(crypto.randomUUID());
   const q = s.documents.find((d) => d.id === o.quote_id)!;
   const invoice = s.documents.find(
     (d) =>
-      d.order_id === o.id &&
-      d.kind === "invoice" &&
-      d.status !== "Superseded",
+      d.order_id === o.id && d.kind === "invoice" && d.status !== "Superseded",
   );
   const m = orderMoney(s, o.id);
   const versions = s.artwork
     .filter((a) => a.order_id === o.id)
     .sort((a, b) => b.version - a.version);
   const disabled = o.status === "Cancelled";
+  const configureSizes = async (enabled: boolean) => {
+    setSizeBusy(true);
+    setSizeMessage("");
+    setSizeError("");
+    try {
+      const items = sizeItems
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const response = await fetch("/api/order-sizes/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: o.id, items, enabled }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not save size form");
+      setSizeItems(result.items.join("\n"));
+      await refresh();
+      setSizeMessage(
+        enabled ? "Size form ready to share." : "Size link closed.",
+      );
+    } catch (cause) {
+      setSizeError(
+        cause instanceof Error ? cause.message : "Could not save size form",
+      );
+    } finally {
+      setSizeBusy(false);
+    }
+  };
+  const exportSizes = () => {
+    if (!sizeForm) return;
+    const bytes = orderSizesWorkbook(sizeForm.entries);
+    const href = URL.createObjectURL(
+      new Blob([new Uint8Array(bytes)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `${o.ref.replace(/[^a-zA-Z0-9_-]/g, "-")}-sizes.xlsx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+  };
   const run = async (fn: () => Promise<unknown>) => {
     setError("");
     try {
@@ -176,6 +234,125 @@ export default function OrderDetail({
           </section>
           <section className="panel">
             <div className="section-title">
+              <h2>Client sizes</h2>
+              {sizeForm && (
+                <span className="eyebrow">{sizeForm.entries.length} SAVED</span>
+              )}
+            </div>
+            <p style={{ marginBottom: 16 }}>
+              Create a private form for the client to add names and sizes.
+              Download one consolidated sheet to give the vendor for printing.
+            </p>
+            <label>
+              Items that need sizes · one per line
+              <textarea
+                value={sizeItems}
+                onChange={(event) => setSizeItems(event.target.value)}
+                placeholder={"Hoodie\nT-shirt"}
+                disabled={sizeBusy || disabled}
+                rows={3}
+              />
+            </label>
+            <div className="row" style={{ marginTop: 16, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="button primary"
+                disabled={sizeBusy || disabled}
+                onClick={() => configureSizes(true)}
+              >
+                {sizeBusy
+                  ? "Saving…"
+                  : sizeForm?.enabled
+                    ? "Save size form"
+                    : "Create share link"}
+              </button>
+              {sizeForm?.enabled && (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={sizeBusy}
+                  onClick={() => configureSizes(false)}
+                >
+                  Close link
+                </button>
+              )}
+              {sizeForm && (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={sizeBusy}
+                  onClick={async () => {
+                    setSizeBusy(true);
+                    try {
+                      await refresh();
+                      setSizeMessage("Size list updated.");
+                    } catch (cause) {
+                      setSizeError(
+                        cause instanceof Error
+                          ? cause.message
+                          : "Could not refresh sizes",
+                      );
+                    } finally {
+                      setSizeBusy(false);
+                    }
+                  }}
+                >
+                  {sizeBusy ? "Refreshing…" : "Refresh sizes"}
+                </button>
+              )}
+              {sizeForm && (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={!sizeForm.entries.length}
+                  onClick={exportSizes}
+                >
+                  <Download size={15} /> Download vendor sheet
+                </button>
+              )}
+            </div>
+            {sizeForm?.enabled && (
+              <div className="sizes-share-link">
+                <label>
+                  Client link
+                  <input
+                    readOnly
+                    value={`${sizeOrigin}/sizes/${sizeForm.share_token}`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(
+                      `${window.location.origin}/sizes/${sizeForm.share_token}`,
+                    );
+                    setSizeMessage("Link copied.");
+                  }}
+                >
+                  <Copy size={15} /> Copy link
+                </button>
+              </div>
+            )}
+            {sizeForm && (
+              <p style={{ marginTop: 12, fontSize: 12 }}>
+                Anyone with the link can view and edit submitted names and phone
+                numbers. Reopening a closed link creates a new link.
+              </p>
+            )}
+            {sizeError && (
+              <p className="form-error" role="alert">
+                {sizeError}
+              </p>
+            )}
+            {sizeMessage && (
+              <p className="form-success" role="status">
+                {sizeMessage}
+              </p>
+            )}
+          </section>
+          <section className="panel">
+            <div className="section-title">
               <h2>Artwork & approvals</h2>
               <span className="eyebrow">VERSION HISTORY</span>
             </div>
@@ -298,11 +475,11 @@ export default function OrderDetail({
                 }}
               >
                 <label>
-                  New version · PNG, JPG, WebP or PDF, max 4 MB
+                  New version · PNG, JPG, WebP, PDF or XLSX, max 4 MB
                   <input
                     name="file"
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    accept="image/png,image/jpeg,image/webp,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     required
                     onChange={() => (uploadKey.current = crypto.randomUUID())}
                   />

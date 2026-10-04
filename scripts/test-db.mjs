@@ -260,6 +260,8 @@ await test("production is blocked until current artwork approval", async () => {
   await assert.rejects(call("save_order", update), /Approve the latest/);
 });
 await test("private artwork upload and versioned approval unlock production", async () => {
+  const mimeTypes = (await db.query("select allowed_mime_types from storage.buckets where id='artwork'")).rows[0].allowed_mime_types;
+  assert(mimeTypes.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
   const path = order + "/" + id() + "/v1.pdf";
   await asUser(db, STAFF, (tx) =>
     tx.query("insert into storage.objects(bucket_id,name) values($1,$2)", [
@@ -1291,6 +1293,59 @@ await test("invoice and invoice revision inherit hidden discounts", async () => 
   await call("issue_invoice", { id: firstInvoice, due_on: null });
   const revision = (await call("revise_invoice", { id: firstInvoice })).id;
   assert.equal((await db.query("select show_discount from documents where id=$1", [revision])).rows[0].show_discount, false);
+});
+await test("client size link saves rows and keeps other orders private", async () => {
+  const q = (await call("save_quote", {
+    title: "Team apparel", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [{ ...line, discount_pct: 0, tax_rate: 0 }],
+    terms: "", show_discount: false,
+  })).id;
+  await call("quote_status", { id: q, status: "Accepted" });
+  const sizeOrder = (await call("convert_quote", { id: q })).id;
+  const configured = (await asUser(db, OWNER, (tx) => tx.query(
+    "select configure_order_sizes($1,$2::text[],$3) as form",
+    [sizeOrder, ["Hoodie", "T-shirt"], true],
+  ))).rows[0].form;
+  assert.equal(configured.items.length, 2);
+  const shared = (await asUser(db, null, (tx) => tx.query(
+    "select shared_order_sizes($1::uuid) as form", [configured.share_token],
+  ))).rows[0].form;
+  assert.equal(shared.order_ref.startsWith("O-"), true);
+  await assert.rejects(asUser(db, null, (tx) => tx.query(
+    "select count(*)::int n from order_size_forms",
+  )), /permission denied/);
+  const entry = { id: id(), item: "Hoodie", name: "Madhav Gandhi",
+    phone: "07668484377", print_name: "MADHAV", size: "M" };
+  await assert.rejects(asUser(db, null, (tx) => tx.query(
+    "select save_order_sizes($1::uuid,$2::jsonb,$3)",
+    [configured.share_token, JSON.stringify([{ ...entry, item: "Unknown" }]), 0],
+  )), /Complete each name and size/);
+  const result = (await asUser(db, null, (tx) => tx.query(
+    "select save_order_sizes($1::uuid,$2::jsonb,$3) as result",
+    [configured.share_token, JSON.stringify([entry]), 0],
+  ))).rows[0].result;
+  assert.equal(result.version, 1);
+  await assert.rejects(asUser(db, null, (tx) => tx.query(
+    "select save_order_sizes($1::uuid,$2::jsonb,$3)",
+    [configured.share_token, JSON.stringify([]), 0],
+  )), /changed elsewhere/);
+  const saved = (await asUser(db, OWNER, (tx) => tx.query(
+    "select entries from order_size_forms where order_id=$1", [sizeOrder],
+  ))).rows[0].entries;
+  assert.equal(saved[0].phone, "07668484377");
+  await asUser(db, OWNER, (tx) => tx.query(
+    "select configure_order_sizes($1,$2::text[],$3)",
+    [sizeOrder, ["Hoodie", "T-shirt"], false],
+  ));
+  assert.equal((await asUser(db, null, (tx) => tx.query(
+    "select shared_order_sizes($1::uuid) as form", [configured.share_token],
+  ))).rows[0].form, null);
+  const reopened = (await asUser(db, OWNER, (tx) => tx.query(
+    "select configure_order_sizes($1,$2::text[],$3) as form",
+    [sizeOrder, ["Hoodie", "T-shirt"], true],
+  ))).rows[0].form;
+  assert.notEqual(reopened.share_token, configured.share_token);
+  assert.equal(reopened.entries.length, 1);
 });
 console.log(`${passed} database scenarios passed`);
 await db.close();

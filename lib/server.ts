@@ -3,7 +3,12 @@ import { createClient } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/env";
 import { demoEnabled, demoDb } from "./demo";
 import { asUser, OWNER, STAFF } from "../scripts/db-harness.mjs";
-import type { Snapshot, Profile, CommercialDocument } from "./types";
+import type {
+  Snapshot,
+  Profile,
+  CommercialDocument,
+  SharedOrderSizes,
+} from "./types";
 import { cookies } from "next/headers";
 import { z } from "zod";
 const tables = [
@@ -19,6 +24,7 @@ const tables = [
   "order_vendors",
   "order_costs",
   "artwork",
+  "order_size_forms",
   "followups",
   "payments",
 ] as const;
@@ -67,12 +73,18 @@ export async function snapshot(): Promise<Snapshot> {
             .from(t)
             .select("*")
             .order(
-              t === "order_vendors" || t === "order_costs" ? "order_id" : "id",
+              t === "order_vendors" ||
+                t === "order_costs" ||
+                t === "order_size_forms"
+                ? "order_id"
+                : "id",
             )
             .order(
-              t === "order_vendors" || t === "order_costs"
-                ? "item_index"
-                : "id",
+              t === "order_size_forms"
+                ? "order_id"
+                : t === "order_vendors" || t === "order_costs"
+                  ? "item_index"
+                  : "id",
             )
             .range(offset, offset + 999);
           if (error) throw new Error(error.message);
@@ -128,4 +140,27 @@ export async function sharedDocument(
   const { data, error } = await db.rpc("shared_document", { token });
   if (error) return null;
   return data;
+}
+export async function sharedOrderSizes(
+  token: string,
+): Promise<SharedOrderSizes | null> {
+  if (!z.uuid().safeParse(token).success) return null;
+  if (demoEnabled())
+    return asUser(
+      await demoDb(),
+      null,
+      async (tx) =>
+        (
+          await tx.query<{ form: SharedOrderSizes | null }>(
+            "select shared_order_sizes($1::uuid) as form",
+            [token],
+          )
+        ).rows[0].form,
+    );
+  if (!isSupabaseConfigured) return null;
+  const db = await createClient();
+  const { data, error } = await db.rpc("shared_order_sizes", {
+    p_token: token,
+  });
+  return error ? null : data;
 }

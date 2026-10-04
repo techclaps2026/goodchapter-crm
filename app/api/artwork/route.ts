@@ -13,17 +13,35 @@ export async function POST(request: Request) {
     const file = form.get("file");
     const orderId = String(form.get("order_id"));
     const key = String(form.get("key"));
+    const xlsxMime =
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const xlsxHeader =
+      file instanceof File &&
+      file.name.toLowerCase().endsWith(".xlsx") &&
+      [xlsxMime, "application/octet-stream", ""].includes(file.type)
+        ? new Uint8Array(await file.slice(0, 4).arrayBuffer())
+        : null;
+    const xlsx =
+      !!xlsxHeader &&
+      xlsxHeader.length === 4 &&
+      xlsxHeader[0] === 80 &&
+      xlsxHeader[1] === 75 &&
+      xlsxHeader[2] === 3 &&
+      xlsxHeader[3] === 4;
+    const contentType = xlsx ? xlsxMime : file instanceof File ? file.type : "";
     if (
       !/^[0-9a-f-]{36}$/i.test(orderId) ||
       !/^[0-9a-f-]{36}$/i.test(key) ||
       !(file instanceof File) ||
       file.size === 0 ||
       file.size > 4194304 ||
-      !["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(
-        file.type,
+      !(
+        ["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(
+          contentType,
+        ) || xlsx
       )
     )
-      throw new Error("Choose a PNG, JPG, WebP or PDF up to 4 MB");
+      throw new Error("Choose a PNG, JPG, WebP, PDF or XLSX up to 4 MB");
     const path = `${orderId}/${key}/${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     if (demoEnabled()) {
       const db = await demoDb();
@@ -33,13 +51,13 @@ export async function POST(request: Request) {
       );
       demoFiles().set(path, {
         bytes: new Uint8Array(await file.arrayBuffer()),
-        type: file.type,
+        type: contentType,
       });
     } else {
       const db = await createClient();
       const { error } = await db.storage
         .from("artwork")
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, file, { contentType, upsert: false });
       if (error && error.message !== "The resource already exists") throw error;
     }
     const result = await mutate(
