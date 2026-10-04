@@ -33,6 +33,10 @@ import {
   ArrowLeft,
   Share2,
   Mail,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -337,20 +341,25 @@ export default function CRM({
       {sub && <small>{sub}</small>}
     </Link>
   );
-  const edit = (kind: EntityKind, item: unknown) => (
+  const edit = (kind: EntityKind, item: unknown, iconOnly = false) => (
     <button
-      className="button small"
+      className={`button small${iconOnly ? " vendor-action" : ""}`}
+      aria-label={iconOnly ? "Edit vendor" : undefined}
+      title={iconOnly ? "Edit vendor" : undefined}
       onClick={() => setForm({ kind, initial: entityValues(item) })}
     >
-      Edit
+      {iconOnly ? <Pencil size={16} aria-hidden="true" /> : "Edit"}
     </button>
   );
   const archive = (
     kind: "client" | "product" | "vendor",
     item: { id: string; archived: boolean },
+    iconOnly = false,
   ) => (
     <button
-      className="button small"
+      className={`button small${iconOnly ? " vendor-action" : ""}`}
+      aria-label={iconOnly ? `${item.archived ? "Restore" : "Archive"} vendor` : undefined}
+      title={iconOnly ? `${item.archived ? "Restore" : "Archive"} vendor` : undefined}
       disabled={busy}
       onClick={() =>
         run(() => {
@@ -384,7 +393,10 @@ export default function CRM({
         })
       }
     >
-      {item.archived ? "Restore" : "Archive"}
+      {iconOnly ? item.archived
+        ? <ArchiveRestore size={16} aria-hidden="true" />
+        : <Archive size={16} aria-hidden="true" />
+        : item.archived ? "Restore" : "Archive"}
     </button>
   );
   const removeRecord = (
@@ -401,11 +413,14 @@ export default function CRM({
     id: string,
     label: string,
     catalogPaths: string[] = [],
+    iconOnly = false,
   ) =>
     canManageUsers(s.profile.role) ? (
       <button
         key="delete"
-        className="button small danger"
+        className={`button small danger${iconOnly ? " vendor-action" : ""}`}
+        aria-label={iconOnly ? `Delete ${label}` : undefined}
+        title={iconOnly ? `Delete ${label}` : undefined}
         disabled={busy}
         onClick={async () => {
           const agreed = await confirm({
@@ -425,7 +440,7 @@ export default function CRM({
           });
         }}
       >
-        Delete
+        {iconOnly ? <Trash2 size={16} aria-hidden="true" /> : "Delete"}
       </button>
     ) : null;
   const clientName = (id: string | null) =>
@@ -1369,9 +1384,9 @@ export default function CRM({
                       ))
                   : "—"}
               </div>,
-              <div className="row" key="a">
-                {edit("vendor", v)}
-                {archive("vendor", v)}
+              <div className="row vendor-actions" key="a">
+                {edit("vendor", v, true)}
+                {archive("vendor", v, true)}
                 {removeRecord(
                   "vendor",
                   v.id,
@@ -1379,6 +1394,7 @@ export default function CRM({
                   s.vendor_catalogs
                     .filter((c) => c.vendor_id === v.id)
                     .map((c) => c.storage_path),
+                  true,
                 )}
               </div>,
             ]),

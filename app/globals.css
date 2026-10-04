@@ -768,6 +768,9 @@ p {
 .vendor-table th:nth-child(6) { width: 15%; }
 .vendor-table td { min-width: 0; overflow-wrap: anywhere; vertical-align: top; }
 .vendor-table td:last-child .row { gap: 6px; }
+.vendor-actions { flex-wrap: nowrap; }
+.button.small.vendor-action { width: 34px; min-width: 34px; height: 34px; padding: 0; }
+.vendor-action:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .vendor-speciality { min-width: 0; }
 .vendor-speciality small { white-space: pre-wrap; overflow-wrap: anywhere; }
 .vendor-speciality-preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
