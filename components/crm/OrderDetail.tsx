@@ -243,9 +243,7 @@ export default function OrderDetail({
           <section className="panel">
             <div className="section-title">
               <h2>Client sizes</h2>
-              {sizeForm && (
-                <span className="eyebrow">{sizeForm.entries.length} SAVED</span>
-              )}
+              <span className="eyebrow">{sizeForm?.entries.length ?? 0} SAVED</span>
             </div>
             <p style={{ marginBottom: 16 }}>
               Create a private form for the client to add names and sizes.
@@ -303,40 +301,36 @@ export default function OrderDetail({
                   Close link
                 </button>
               )}
-              {sizeForm && (
-                <button
-                  type="button"
-                  className="button"
-                  disabled={sizeBusy}
-                  onClick={async () => {
-                    setSizeBusy(true);
-                    try {
-                      await refresh();
-                      setSizeMessage("Size list updated.");
-                    } catch (cause) {
-                      setSizeError(
-                        cause instanceof Error
-                          ? cause.message
-                          : "Could not refresh sizes",
-                      );
-                    } finally {
-                      setSizeBusy(false);
-                    }
-                  }}
-                >
-                  {sizeBusy ? "Refreshing…" : "Refresh sizes"}
-                </button>
-              )}
-              {sizeForm && (
-                <button
-                  type="button"
-                  className="button"
-                  disabled={!sizeForm.entries.length}
-                  onClick={exportSizes}
-                >
-                  <Download size={15} /> Download vendor sheet
-                </button>
-              )}
+              <button
+                type="button"
+                className="button"
+                disabled={!sizeForm || sizeBusy}
+                onClick={async () => {
+                  setSizeBusy(true);
+                  try {
+                    await refresh();
+                    setSizeMessage("Size list updated.");
+                  } catch (cause) {
+                    setSizeError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Could not refresh sizes",
+                    );
+                  } finally {
+                    setSizeBusy(false);
+                  }
+                }}
+              >
+                {sizeBusy ? "Refreshing…" : "Refresh sizes"}
+              </button>
+              <button
+                type="button"
+                className="button"
+                disabled={!sizeForm?.entries.length}
+                onClick={exportSizes}
+              >
+                <Download size={15} /> Download vendor sheet
+              </button>
             </div>
             {sizeForm?.enabled && (
               <div className="sizes-share-link">
@@ -361,12 +355,10 @@ export default function OrderDetail({
                 </button>
               </div>
             )}
-            {sizeForm && (
-              <p style={{ marginTop: 12, fontSize: 12 }}>
-                Anyone with the link can view and edit submitted names and phone
-                numbers. Reopening a closed link creates a new link.
-              </p>
-            )}
+            <p style={{ marginTop: 12, fontSize: 12 }}>
+              Anyone with the link can view and edit submitted names and phone
+              numbers. Reopening a closed link creates a new link.
+            </p>
             {sizeError && (
               <p className="form-error" role="alert">
                 {sizeError}

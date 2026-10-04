@@ -1323,6 +1323,9 @@ await test("client size link saves rows and keeps other orders private", async (
   })).id;
   await call("quote_status", { id: q, status: "Accepted" });
   const sizeOrder = (await call("convert_quote", { id: q })).id;
+  assert.equal((await db.query(
+    "select count(*)::int n from order_size_forms where order_id=$1", [sizeOrder],
+  )).rows[0].n, 0);
   const configured = (await asUser(db, OWNER, (tx) => tx.query(
     "select configure_order_sizes($1,$2::text[],$3) as form",
     [sizeOrder, ["Hoodie", "T-shirt"], true],
