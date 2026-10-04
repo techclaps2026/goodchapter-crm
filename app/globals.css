@@ -1306,13 +1306,19 @@ tr.clickable:hover {
 .quote-engagement { margin: 26px 0; padding: 22px; border: 1px solid var(--border); background: var(--card); }
 .quote-engagement h3 { margin: 0 0 4px; font-size: 17px; }
 .quote-engagement p { margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
-.quote-engagement-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.quote-engagement-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
 .quote-engagement-grid > div { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--border); background: #fff; }
 .quote-engagement-grid strong { font-size: 22px; line-height: 1; }
 .quote-engagement-grid span { color: var(--muted-foreground); font-size: 11px; }
 .quote-engagement .quote-engagement-options { margin-bottom: 8px; }
 .quote-engagement .quote-engagement-disclaimer { margin-top: 10px; }
-@media (max-width: 1000px) { .quote-engagement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.quote-visit-section { margin-top: 20px; }
+.quote-visit-section h4 { margin: 0 0 8px; font-size: 13px; }
+.quote-visit-list { border: 1px solid var(--border); }
+.quote-visit { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(130px, 1fr) minmax(190px, 1.5fr); gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--border); font-size: 11px; }
+.quote-visit:last-child { border-bottom: 0; }
+.quote-visit span { color: var(--muted-foreground); overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .quote-engagement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quote-visit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .quote-visit span:last-child { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .quote-engagement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .document .quote-option-card { display: block; min-width: 0; padding: 10px; border: 1px solid var(--border); background: #fff; color: inherit; cursor: default; }
 .document .quote-option-card:has(input) { cursor: pointer; }
@@ -1362,6 +1368,16 @@ tr.clickable:hover {
   max-width: 900px;
   margin: 0 auto 20px;
 }
+.share-privacy-trigger { margin-left: auto; font-size: 12px; white-space: nowrap; }
+.share-consent { position: fixed; z-index: 30; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; justify-content: space-between; gap: 24px; width: min(940px, calc(100% - 28px)); max-height: min(70dvh, 400px); overflow-y: auto; padding: 20px 22px; border: 1px solid var(--foreground); background: var(--card); box-shadow: 0 15px 50px #0c0b0a30; }
+.share-consent h2 { margin: 0 0 5px; font-size: 16px; }
+.share-consent p { max-width: 620px; margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
+.share-consent-actions { display: flex; flex-shrink: 0; gap: 8px; }
+@media (max-width: 700px) {
+  .share-consent { bottom: 0; width: 100%; max-height: 75dvh; display: grid; gap: 14px; padding: 16px; }
+  .share-consent-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .share-consent-actions .button { white-space: normal; }
+}
 .share-page .document,
 .share-page .quote-choice-submit { width: 100%; min-width: 0; }
 .share-page .document h2,
@@ -1374,6 +1390,8 @@ tr.clickable:hover {
   .share-page .quote-choice-submit { padding: 18px; }
   .share-page .quote-choice-submit .button { width: 100%; justify-content: center; }
   .print-actions .button { flex-shrink: 0; }
+  .print-actions { flex-wrap: wrap; }
+  .share-privacy-trigger { order: 3; width: 100%; margin: 0; text-align: right; }
 }
 .error-screen {
   padding: 60px;
@@ -1639,6 +1657,7 @@ tr.clickable:hover {
     background: white;
   }
   .print-actions,
+  .share-consent,
   .no-print {
     display: none !important;
   }

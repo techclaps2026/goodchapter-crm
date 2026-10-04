@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { isSameOrigin } from "@/lib/request-origin";
+import { QUOTE_ANALYTICS_COOKIE, broadLocation, browserFamily, deviceCategory } from "@/lib/quote-analytics";
 import { session } from "@/lib/server";
 import { demoDb, demoEnabled } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
@@ -12,7 +14,7 @@ const eventSchema = z.object({
   token: z.uuid(),
   visitId: z.uuid(),
   visitorId: z.uuid(),
-  event: z.enum(["open", "scroll", "pdf_click", "option_click", "choices_submit"]),
+  event: z.enum(["open", "scroll", "pdf_click", "pdf_ready", "option_click", "choices_submit"]),
   optionId: z.uuid().optional(),
   scrollPercent: z.union([z.literal(25), z.literal(50), z.literal(75), z.literal(100)]).optional(),
 });
@@ -20,21 +22,31 @@ const eventSchema = z.object({
 export async function POST(request: Request) {
   if (!isSameOrigin(request))
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  if ((await cookies()).get(QUOTE_ANALYTICS_COOKIE)?.value !== "accepted")
+    return NextResponse.json({ error: "Analytics consent required" }, { status: 403 });
   const parsed = eventSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json({ error: "Invalid engagement event" }, { status: 400 });
   const { token, visitId, visitorId, event, optionId, scrollPercent } = parsed.data;
+  const userAgent = request.headers.get("user-agent") ?? "";
+  const location = broadLocation(request.headers);
+  const device = event === "open" ? deviceCategory(userAgent) : null;
+  const browser = event === "open" ? browserFamily(userAgent) : null;
+  const country = event === "open" ? location.country : null;
+  const region = event === "open" ? location.region : null;
   try {
     if (demoEnabled()) {
       await asUser(await demoDb(), null, (db) => db.query(
-        "select public.record_quote_share_event($1::uuid,$2::uuid,$3::uuid,$4::text,$5::uuid,$6::smallint)",
-        [token, visitId, visitorId, event, optionId ?? null, scrollPercent ?? null],
+        "select public.record_quote_share_event($1::uuid,$2::uuid,$3::uuid,$4::text,$5::uuid,$6::smallint,$7::text,$8::text,$9::text,$10::text)",
+        [token, visitId, visitorId, event, optionId ?? null, scrollPercent ?? null, device, browser, country, region],
       ));
     } else {
       const db = await createClient();
       const { error } = await db.rpc("record_quote_share_event", {
         p_token: token, p_visit_id: visitId, p_visitor_id: visitorId,
         p_event: event, p_option_id: optionId ?? null, p_scroll_percent: scrollPercent ?? null,
+        p_device_category: device, p_browser_family: browser,
+        p_country_code: country, p_region_code: region,
       });
       if (error) throw error;
     }

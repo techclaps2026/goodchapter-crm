@@ -4,7 +4,8 @@ import { Download } from "lucide-react";
 import { toast } from "sonner";
 import DocumentView from "./DocumentView";
 import type { CommercialDocument } from "@/lib/types";
-type EngagementEvent = "open" | "scroll" | "pdf_click" | "option_click" | "choices_submit";
+import type { QuoteAnalyticsConsent } from "@/lib/quote-analytics";
+type EngagementEvent = "open" | "scroll" | "pdf_click" | "pdf_ready" | "option_click" | "choices_submit";
 type TrackingContext = { visitId: string; visitorId: string; opened: Promise<boolean> };
 type EventValues = { optionId?: string; scrollPercent?: number };
 
@@ -15,10 +16,13 @@ function sendEvent(token: string, context: TrackingContext, event: EngagementEve
   });
 }
 
-export default function SharedDocument({ doc, token, trackEngagement = false }: {
-  doc: CommercialDocument; token: string; trackEngagement?: boolean;
+export default function SharedDocument({ doc, token, trackEngagement = false, initialConsent = "unset" }: {
+  doc: CommercialDocument; token: string; trackEngagement?: boolean; initialConsent?: QuoteAnalyticsConsent;
 }) {
   const [busy, setBusy] = useState(false);
+  const [consent, setConsent] = useState<QuoteAnalyticsConsent>(initialConsent);
+  const [consentOpen, setConsentOpen] = useState(trackEngagement && initialConsent === "unset");
+  const [consentBusy, setConsentBusy] = useState(false);
   const [selections, setSelections] = useState<Record<string, string>>(doc.quote_selections ?? {});
   const tracking = useRef<TrackingContext | null>(null);
   const visit = useRef<{ token: string; id: string } | null>(null);
@@ -30,8 +34,28 @@ export default function SharedDocument({ doc, token, trackEngagement = false }: 
       if (opened) return sendEvent(token, context, event, values).catch(() => {});
     });
   };
+  const chooseConsent = async (choice: "accepted" | "declined") => {
+    setConsentBusy(true);
+    try {
+      const response = await fetch("/api/quote-consent", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consent: choice }),
+      });
+      if (!response.ok) throw new Error("Could not save your choice");
+      if (choice === "declined") {
+        tracking.current = null;
+        try { sessionStorage.removeItem(`tgc-quote-visitor:${token}`); } catch { /* Storage may be unavailable. */ }
+      }
+      setConsent(choice);
+      setConsentOpen(false);
+    } catch {
+      toast.error("Could not save your privacy choice. Please try again.");
+    } finally {
+      setConsentBusy(false);
+    }
+  };
   useEffect(() => {
-    if (!trackEngagement) return;
+    if (!trackEngagement || consent !== "accepted") return;
     const key = `tgc-quote-visitor:${token}`;
     let visitorId: string | null = null;
     try { visitorId = sessionStorage.getItem(key); } catch { /* Storage may be unavailable. */ }
@@ -67,11 +91,14 @@ export default function SharedDocument({ doc, token, trackEngagement = false }: 
       window.removeEventListener("resize", measureScroll);
       if (tracking.current === context) tracking.current = null;
     };
-  }, [token, trackEngagement]);
+  }, [token, trackEngagement, consent]);
   return (
     <main className="share-page">
       <div className="print-actions">
         <span className="eyebrow">THE GOOD CHAPTER</span>
+        {trackEngagement && consent !== "unset" &&
+          <button type="button" className="text-link share-privacy-trigger"
+            onClick={() => setConsentOpen(true)}>Privacy choices</button>}
         <button
           className="button primary"
           disabled={busy}
@@ -80,6 +107,7 @@ export default function SharedDocument({ doc, token, trackEngagement = false }: 
             setBusy(true);
             try {
               await (await import("@/lib/document-pdf")).downloadDocument(doc, token);
+              track("pdf_ready");
             } catch {
               toast.error("Could not create PDF");
             } finally {
@@ -121,6 +149,25 @@ export default function SharedDocument({ doc, token, trackEngagement = false }: 
             }}>{busy ? "Sending…" : "Send my choices"}</button>
         </div>
       )}
+      {trackEngagement && consentOpen && <div className="share-consent" role="dialog"
+        aria-labelledby="share-consent-title" aria-describedby="share-consent-description">
+        <div>
+          <h2 id="share-consent-title">Optional quotation analytics</h2>
+          <p id="share-consent-description">
+            If you agree, we record page opens, reading progress, option and PDF interactions,
+            your device type and browser family, and approximate country or region. This helps us
+            understand interest in the proposal. We do not store your IP address or precise location
+            in CRM analytics, or use third-party analytics. The quotation works the same if you decline.
+            You can change this choice using Privacy choices.
+          </p>
+        </div>
+        <div className="share-consent-actions">
+          <button type="button" className="button" disabled={consentBusy}
+            onClick={() => void chooseConsent("declined")}>Decline</button>
+          <button type="button" className="button primary" disabled={consentBusy}
+            onClick={() => void chooseConsent("accepted")}>Allow analytics</button>
+        </div>
+      </div>}
     </main>
   );
 }

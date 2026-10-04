@@ -663,8 +663,10 @@ await test("shared quotation engagement is counted without exposing raw visits",
   const visit = id();
   const visitor = id();
   const record = (event, option = null, percent = null) => asUser(db, null, (tx) =>
-    tx.query("select record_quote_share_event($1::uuid,$2::uuid,$3::uuid,$4::text,$5::uuid,$6::smallint)",
-      [token, visit, visitor, event, option, percent]));
+    tx.query("select record_quote_share_event($1::uuid,$2::uuid,$3::uuid,$4::text,$5::uuid,$6::smallint,$7::text,$8::text,$9::text,$10::text)",
+      [token, visit, visitor, event, option, percent,
+        event === "open" ? "mobile" : null, event === "open" ? "Safari" : null,
+        event === "open" ? "IN" : null, event === "open" ? "DL" : null]));
   await assert.rejects(record("pdf_click"), /Open the quotation/);
   await record("open");
   await record("open");
@@ -672,6 +674,7 @@ await test("shared quotation engagement is counted without exposing raw visits",
   await record("scroll", null, 50);
   await record("scroll", null, 100);
   await record("pdf_click");
+  await record("pdf_ready");
   await record("option_click", optionId);
   await record("choices_submit");
   await assert.rejects(record("option_click", id()), /Invalid quotation option/);
@@ -680,11 +683,18 @@ await test("shared quotation engagement is counted without exposing raw visits",
   assert.equal(Number(stats.opens), 1);
   assert.equal(Number(stats.unique_sessions), 1);
   assert.equal(Number(stats.pdf_clicks), 1);
+  assert.equal(Number(stats.pdf_started), 1);
   assert.equal(Number(stats.option_clicks), 1);
   assert.equal(Number(stats.scrolled_halfway), 1);
   assert.equal(Number(stats.reached_end), 1);
   assert.equal(Number(stats.choices_submitted), 1);
   assert.equal(Number(stats.option_clicks_by_id[optionId]), 1);
+  assert.equal(Number(stats.devices.mobile), 1);
+  assert.equal(stats.recent_visits[0].country_code, "IN");
+  assert.equal(stats.recent_visits[0].region_code, "DL");
+  assert.equal(stats.recent_visits[0].device_category, "mobile");
+  assert.equal(Number(stats.recent_visits[0].scroll_percent), 100);
+  assert.equal(Number(stats.recent_visits[0].pdf_started), 1);
   await assert.rejects(asUser(db, null, (tx) =>
     tx.query("select quote_share_stats($1::uuid)", [q])), /permission denied/);
   await assert.rejects(asUser(db, null, (tx) =>
