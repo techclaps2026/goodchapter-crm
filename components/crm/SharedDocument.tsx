@@ -98,7 +98,7 @@ export default function SharedDocument({ doc, token, trackEngagement = false, in
         <span className="eyebrow">THE GOOD CHAPTER</span>
         {trackEngagement && consent !== "unset" &&
           <button type="button" className="text-link share-privacy-trigger"
-            onClick={() => setConsentOpen(true)}>Privacy choices</button>}
+            onClick={() => setConsentOpen(true)}>Cookie settings</button>}
         <button
           className="button primary"
           disabled={busy}
@@ -149,23 +149,22 @@ export default function SharedDocument({ doc, token, trackEngagement = false, in
             }}>{busy ? "Sending…" : "Send my choices"}</button>
         </div>
       )}
-      {trackEngagement && consentOpen && <div className="share-consent" role="dialog"
+      {trackEngagement && consentOpen && <div className="share-consent" role="region"
         aria-labelledby="share-consent-title" aria-describedby="share-consent-description">
         <div>
-          <h2 id="share-consent-title">Optional quotation analytics</h2>
+          <h2 id="share-consent-title">Cookies on this quotation</h2>
           <p id="share-consent-description">
-            If you agree, we record page opens, reading progress, option and PDF interactions,
-            your device type and browser family, and approximate country or region. This helps us
-            understand interest in the proposal. We do not store your IP address or precise location
-            in CRM analytics, or use third-party analytics. The quotation works the same if you decline.
-            You can change this choice using Privacy choices.
+            We use a cookie to remember your choice. If you accept optional analytics, we also use
+            browser storage to measure quotation views, reading progress, option clicks and PDF
+            download starts, plus device type and approximate region. The quotation works either way.
+            You can change your choice in Cookie settings.
           </p>
         </div>
         <div className="share-consent-actions">
           <button type="button" className="button" disabled={consentBusy}
-            onClick={() => void chooseConsent("declined")}>Decline</button>
-          <button type="button" className="button primary" disabled={consentBusy}
-            onClick={() => void chooseConsent("accepted")}>Allow analytics</button>
+            onClick={() => void chooseConsent("declined")}>Reject optional</button>
+          <button type="button" className="button" disabled={consentBusy}
+            onClick={() => void chooseConsent("accepted")}>Accept optional</button>
         </div>
       </div>}
     </main>
