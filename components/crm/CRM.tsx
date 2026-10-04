@@ -749,6 +749,18 @@ export default function CRM({
               </button>
             </div>
           </div>
+          {doc.kind === "invoice" && doc.status !== "Superseded" && !doc.business.gstin && (
+            <p className="invoice-gstin-notice" role="status">
+              {s.settings.gstin
+                ? doc.status === "Issued"
+                  ? "This issued invoice does not include your saved GSTIN. Use Revise invoice to create a corrected draft."
+                  : "Your saved GSTIN will be added when you issue this invoice."
+                : <>
+                    Business GSTIN is missing. <Link href="/settings#business-details">Add it in Settings</Link>
+                    {doc.status === "Issued" ? ", then revise this invoice." : " before issuing."}
+                  </>}
+            </p>
+          )}
           <div className="divider" />
           <div className="row between document-actions">
             <div className="row">

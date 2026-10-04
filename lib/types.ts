@@ -137,6 +137,7 @@ export interface CommercialDocument {
   issued_on: string | null;
   due_on: string | null;
   tax_mode: TaxMode;
+  show_discount: boolean;
   pricing_mode?: QuotePricingMode;
   client_choice_enabled?: boolean;
   items: Line[];

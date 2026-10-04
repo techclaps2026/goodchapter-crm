@@ -28,6 +28,8 @@ export default function Settings({
   mode: "business" | "users";
 }) {
   const [v, setV] = useState(s.settings);
+  const [businessError, setBusinessError] = useState("");
+  const [businessSaved, setBusinessSaved] = useState(false);
   const [upiId, setUpiId] = useState(s.settings.upi_id);
   const [savingUpi, setSavingUpi] = useState(false);
   const [upiError, setUpiError] = useState("");
@@ -79,7 +81,8 @@ export default function Settings({
         <div className="stack">
           <form
             className="panel"
-            onSubmit={(e) => {
+            id="business-details"
+            onSubmit={async (e) => {
               e.preventDefault();
               const {
                 company_name,
@@ -90,23 +93,35 @@ export default function Settings({
                 bank_details,
                 terms,
               } = v;
-              run(() =>
-                mutate("save_settings", {
+              setBusinessError("");
+              setBusinessSaved(false);
+              const normalizedGstin = gstin.trim().toUpperCase();
+              try {
+                await mutate("save_settings", {
                   company_name,
                   email,
                   phone,
                   address,
-                  gstin,
+                  gstin: normalizedGstin,
                   bank_details,
                   terms,
-                }),
-              );
+                });
+                setV((current) => ({ ...current, gstin: normalizedGstin }));
+                setBusinessSaved(true);
+              } catch (cause) {
+                setBusinessError(
+                  cause instanceof Error
+                    ? cause.message
+                    : "Could not save business details.",
+                );
+              }
             }}
           >
             <h2>Business & documents</h2>
             <p style={{ margin: "8px 0 22px" }}>
-              These details are saved into new quotations. Existing accepted
-              documents stay unchanged.
+              These details appear on new quotations and invoices. Existing
+              issued invoices stay unchanged; revise one to create a corrected
+              copy after updating your GSTIN.
             </p>
             <div className="field-grid">
               {(
@@ -133,7 +148,7 @@ export default function Settings({
                       company_name: "Business name",
                       email: "Email",
                       phone: "Phone",
-                      gstin: "GSTIN (optional)",
+                      gstin: "Business GSTIN (shown on invoices)",
                       address: "Business address",
                       bank_details: "Payment / bank details",
                       terms: "Default terms",
@@ -142,19 +157,37 @@ export default function Settings({
                   {["address", "bank_details", "terms"].includes(k) ? (
                     <textarea
                       value={v[k]}
-                      onChange={(e) => setV({ ...v, [k]: e.target.value })}
+                      onChange={(e) => {
+                        setV({ ...v, [k]: e.target.value });
+                        setBusinessError("");
+                        setBusinessSaved(false);
+                      }}
                     />
                   ) : (
                     <input
                       required={k === "company_name"}
                       type={k === "email" ? "email" : "text"}
                       value={v[k]}
-                      onChange={(e) => setV({ ...v, [k]: e.target.value })}
+                      onChange={(e) => {
+                        setV({ ...v, [k]: e.target.value });
+                        setBusinessError("");
+                        setBusinessSaved(false);
+                      }}
                     />
                   )}
                 </label>
               ))}
             </div>
+            {businessError && (
+              <p className="form-error" role="alert">
+                {businessError}
+              </p>
+            )}
+            {businessSaved && (
+              <p className="form-success" role="status">
+                Business details saved.
+              </p>
+            )}
             <div className="form-footer">
               <button className="button primary" disabled={busy}>
                 Save business details

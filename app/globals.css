@@ -531,6 +531,14 @@ p {
 .panel.flush {
   padding: 0;
 }
+.invoice-gstin-notice {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--secondary);
+  background: var(--muted);
+  font-size: 12px;
+}
+.invoice-gstin-notice a { color: var(--secondary); text-decoration: underline; }
 .two-col {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
@@ -1158,6 +1166,7 @@ tr.clickable:hover {
 .quote-choice-toggle span { display: grid; gap: 2px; }
 .quote-choice-toggle strong { font-size: 13px; font-weight: 600; }
 .quote-choice-toggle small { color: var(--muted-foreground); font-weight: 400; }
+.quote-discount-toggle { margin: 18px 0 14px; }
 .totals {
   margin-left: auto;
   max-width: 350px;

@@ -38,6 +38,7 @@ export default function QuoteEditor({
   const [mode, setMode] = useState<TaxMode>(doc?.tax_mode ?? "None");
   const [pricingMode, setPricingMode] = useState<QuotePricingMode>(doc?.pricing_mode ?? "priced");
   const [clientChoiceEnabled, setClientChoiceEnabled] = useState(doc?.client_choice_enabled ?? false);
+  const [showDiscount, setShowDiscount] = useState(doc?.show_discount ?? false);
   const [terms, setTerms] = useState(doc?.terms ?? s.settings.terms);
   const [items, setItems] = useState<LineInput[]>(doc?.pricing_mode === "selection" ? [blankLine()] : doc?.items ?? [blankLine()]);
   const [optionGroups, setOptionGroups] = useState<QuoteOptionGroup[]>(doc?.quote_options ?? []);
@@ -45,7 +46,8 @@ export default function QuoteEditor({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const isInvoice = doc?.kind === "invoice";
-  const totals = priceLines(items, mode);
+  const effectiveItems = showDiscount ? items : items.map((item) => ({ ...item, discount_pct: 0 }));
+  const totals = priceLines(effectiveItems, mode);
   const change = (i: number, key: keyof LineInput, value: string | number | null) =>
     setItems((current) => current.map((l, j) => (j === i ? { ...l, [key]: value } : l)));
   const uploadPhoto = async (file: File) => {
@@ -88,7 +90,8 @@ export default function QuoteEditor({
                 title,
                 due_on: valid || null,
                 tax_mode: mode,
-                items,
+                items: effectiveItems,
+                show_discount: showDiscount,
                 terms,
               })
             : await mutate("save_quote", {
@@ -100,7 +103,8 @@ export default function QuoteEditor({
                 tax_mode: pricingMode === "selection" ? "None" : mode,
                 pricing_mode: pricingMode,
                 client_choice_enabled: clientChoiceEnabled,
-                items: pricingMode === "selection" ? [] : items,
+                items: pricingMode === "selection" ? [] : effectiveItems,
+                show_discount: showDiscount,
                 quote_options: pricingMode === "selection"
                   ? optionGroups.map((group) => ({ ...group, options: group.options.map((option) => ({ ...option, unit_price: 0 })) }))
                   : optionGroups,
@@ -240,6 +244,12 @@ export default function QuoteEditor({
             ))}
         </select>
       </div>
+      <label className="quote-choice-toggle quote-discount-toggle">
+        <input type="checkbox" checked={showDiscount} onChange={(e) => setShowDiscount(e.target.checked)} />
+        <span><strong>Show discount column</strong>
+          <small>Turn on to set item discounts and show them in the quotation or invoice and PDF. Turning it off clears item discounts when saved.</small>
+        </span>
+      </label>
       {items.map((l, i) => (
         <div className="line-editor" key={i}>
           <div className="row between">
@@ -301,7 +311,7 @@ export default function QuoteEditor({
             {[
               ["quantity", "Quantity", 1],
               ["unit_price", "Unit price (INR)", 0.01],
-              ["discount_pct", "Discount %", 0.01],
+              ...(showDiscount ? [["discount_pct", "Discount %", 0.01]] : []),
               ["tax_rate", "Tax rate %", 0.01],
             ].map(([key, label, step]) => (
               <label key={key}>

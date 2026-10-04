@@ -63,6 +63,27 @@ await test("database recomputes money and strips private line fields", async () 
   assert.equal(d.items[0].cost, undefined);
   assert.equal(d.customer.notes, undefined);
 });
+await test("discount display is saved, shared, and inherited by quote revisions", async () => {
+  const q = (await call("save_quote", {
+    title: "No-discount display", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [{ ...line, discount_pct: 0, tax_rate: 0 }],
+    terms: "", show_discount: false,
+  })).id;
+  assert.equal((await db.query("select show_discount from documents where id=$1", [q])).rows[0].show_discount, false);
+  await assert.rejects(call("save_quote", {
+    id: q, title: "Invalid hidden discount", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [{ ...line, tax_rate: 0 }],
+    terms: "", show_discount: false,
+  }), /Hidden discounts must be zero/);
+  await call("quote_status", { id: q, status: "Sent" });
+  await call("share_document", { id: q, enabled: true });
+  const token = (await db.query("select share_token from documents where id=$1", [q])).rows[0].share_token;
+  const shared = await asUser(db, null, async (tx) =>
+    (await tx.query("select shared_document($1::uuid) d", [token])).rows[0].d);
+  assert.equal(shared.show_discount, false);
+  const revision = (await call("revise_quote", { id: q })).id;
+  assert.equal((await db.query("select show_discount from documents where id=$1", [revision])).rows[0].show_discount, false);
+});
 await test("quotation group notes and order survive normalization", async () => {
   const groups = ["Packaging", "Drinkware"].map((title) => ({
     id: id(), title, note: `${title} applies to the whole group`, quantity: 80,
@@ -298,6 +319,19 @@ await test("one invoice per order, including repeated creation", async () => {
     items: [{ ...line, unit_price: 700 }],
     terms: "Updated client terms",
   });
+  await call("save_invoice", {
+    id: invoice, title: "Revised merchandise requirements", due_on: "2026-12-31",
+    tax_mode: "IGST", items: [{ ...line, unit_price: 700, discount_pct: 0 }],
+    terms: "Updated client terms", show_discount: false,
+  });
+  const withoutDiscount = (await db.query("select show_discount,items from documents where id=$1", [invoice])).rows[0];
+  assert.equal(withoutDiscount.show_discount, false);
+  assert.equal(withoutDiscount.items[0].discount_pct, 0);
+  await call("save_invoice", {
+    id: invoice, title: "Revised merchandise requirements", due_on: "2026-12-31",
+    tax_mode: "IGST", items: [{ ...line, unit_price: 700 }],
+    terms: "Updated client terms", show_discount: true,
+  });
   assert.equal(
     (await db.query("select total from documents where id=$1", [invoice]))
       .rows[0].total,
@@ -343,6 +377,11 @@ await test("payment retries are idempotent and concurrent-safe", async () => {
 });
 await test("issued invoice revisions preserve history and revoke old sharing", async () => {
   const original = invoice;
+  assert.equal(
+    (await db.query("select business->>'gstin' as gstin from documents where id=$1", [original])).rows[0].gstin,
+    "",
+  );
+  await db.query("update workspace_settings set gstin=$1", ["22AAAAA0000A1Z5"]);
   await call("share_document", { id: original, enabled: true });
   const oldToken = (
     await db.query("select share_token from documents where id=$1", [original])
@@ -352,6 +391,14 @@ await test("issued invoice revisions preserve history and revoke old sharing", a
   const retry = await call("revise_invoice", { id: original }, key);
   assert.equal(first.id, retry.id);
   invoice = first.id;
+  assert.equal(
+    (await db.query("select business->>'gstin' as gstin from documents where id=$1", [invoice])).rows[0].gstin,
+    "22AAAAA0000A1Z5",
+  );
+  assert.equal(
+    (await db.query("select business->>'gstin' as gstin from documents where id=$1", [original])).rows[0].gstin,
+    "",
+  );
   assert.equal(
     (
       await db.query("select status,share_token from documents where id=$1", [
@@ -1212,6 +1259,20 @@ await test("only Owner/Admin may edit payments or delete records", async () => {
   })).id;
   await call("delete_record", { kind: "vendor", id: spareVendor });
   assert.equal((await db.query("select count(*)::int n from vendors where id=$1", [spareVendor])).rows[0].n, 0);
+});
+await test("invoice and invoice revision inherit hidden discounts", async () => {
+  const q = (await call("save_quote", {
+    title: "Discount-free order", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [{ ...line, discount_pct: 0, tax_rate: 0 }],
+    terms: "", show_discount: false,
+  })).id;
+  await call("quote_status", { id: q, status: "Accepted" });
+  const newOrder = (await call("convert_quote", { id: q })).id;
+  const firstInvoice = (await call("create_invoice", { id: newOrder, due_on: null })).id;
+  assert.equal((await db.query("select show_discount from documents where id=$1", [firstInvoice])).rows[0].show_discount, false);
+  await call("issue_invoice", { id: firstInvoice, due_on: null });
+  const revision = (await call("revise_invoice", { id: firstInvoice })).id;
+  assert.equal((await db.query("select show_discount from documents where id=$1", [revision])).rows[0].show_discount, false);
 });
 console.log(`${passed} database scenarios passed`);
 await db.close();

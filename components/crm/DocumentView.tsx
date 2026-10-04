@@ -131,7 +131,7 @@ export default function DocumentView({
               <th>Item</th>
               <th>Qty</th>
               <th>Unit price</th>
-              <th>Disc.</th>
+              {d.show_discount && <th>Disc.</th>}
               <th>Tax</th>
               <th>Total</th>
             </tr>
@@ -149,7 +149,7 @@ export default function DocumentView({
                 </td>
                 <td>{i.quantity}</td>
                 <td>{money(i.unit_price)}</td>
-                <td>{i.discount_pct}%</td>
+                {d.show_discount && <td>{i.discount_pct}%</td>}
                 <td>{i.tax_rate}%</td>
                 <td>{money(i.total)}</td>
               </tr>

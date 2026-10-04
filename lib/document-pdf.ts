@@ -348,9 +348,8 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
   autoTable(pdf, {
     startY: y,
     margin: { left: margin, right: margin, top: 20, bottom: 20 },
-    head: [
-      ["Description / HSN", "Qty", "Unit (INR)", "Disc.", "Tax", "Total (INR)"],
-    ],
+    head: [["Description / HSN", "Qty", "Unit (INR)",
+      ...(d.show_discount ? ["Disc."] : []), "Tax", "Total (INR)" ]],
     body: d.items.map((i) => [
       [i.description, i.details, i.hsn ? "HSN/SAC: " + i.hsn : "",
         i.moq ? "MOQ: " + i.moq + " units" : "", i.notes ? "Note: " + i.notes : ""]
@@ -358,7 +357,7 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
         .join("\n"),
       i.quantity,
       Number(i.unit_price).toFixed(2),
-      `${i.discount_pct}%`,
+      ...(d.show_discount ? [`${i.discount_pct}%`] : []),
       `${i.tax_rate}%`,
       Number(i.total).toFixed(2),
     ]),
@@ -376,12 +375,12 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
       fontStyle: "normal",
     },
     columnStyles: {
-      0: { cellWidth: 72 },
+      0: { cellWidth: d.show_discount ? 72 : 82 },
       1: { halign: "right" },
       2: { halign: "right" },
       3: { halign: "right" },
       4: { halign: "right" },
-      5: { halign: "right" },
+      ...(d.show_discount ? { 5: { halign: "right" as const } } : {}),
     },
     rowPageBreak: "avoid",
   });
