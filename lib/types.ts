@@ -26,6 +26,7 @@ export interface Settings {
   logo_url: string;
   bank_details: string;
   upi_id: string;
+  payment_qr_path: string;
   terms: string;
 }
 export interface Client {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invoiceUpiUri } from "../lib/payment-qr";
+import { invoicePaymentQrImageUrl, invoiceUpiUri } from "../lib/payment-qr";
 import type { CommercialDocument } from "../lib/types";
 
 const invoice = {
@@ -20,5 +20,13 @@ describe("invoice UPI QR", () => {
   });
   it("does not create a QR when disabled", () => {
     expect(invoiceUpiUri({ ...invoice, payment_qr_enabled: false })).toBeNull();
+  });
+  it("shows an uploaded QR even without a UPI ID", () => {
+    const path = "a9f0d345-e146-4124-8a28-324381b684cf.png";
+    const uploaded = { ...invoice, business: { ...invoice.business,
+      upi_id: "", payment_qr_path: path } } as CommercialDocument;
+    expect(invoicePaymentQrImageUrl(uploaded)).toBe(`/api/payment-qr?path=${path}`);
+    expect(invoiceUpiUri(uploaded)).toBeNull();
+    expect(invoicePaymentQrImageUrl({ ...uploaded, payment_qr_enabled: false })).toBeNull();
   });
 });

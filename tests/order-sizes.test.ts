@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { unzipSync } from "fflate";
-import { orderSizesWorkbook } from "./order-sizes";
+import { orderSizesWorkbook } from "../lib/order-sizes";
 
 describe("order size vendor export", () => {
   it("creates an Excel sheet with text cells and escaped client input", () => {

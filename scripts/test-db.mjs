@@ -1261,6 +1261,27 @@ await test("invoice QR requires a configured UPI ID and manager access", async (
   await asUser(db, OWNER, (tx) => tx.query("select set_invoice_payment_qr($1,false)", [invoice.id]));
   assert.equal((await db.query("select payment_qr_enabled from documents where id=$1", [invoice.id])).rows[0].payment_qr_enabled, false);
 });
+await test("uploaded payment QR can be shown without a UPI ID", async () => {
+  const invoice = (await db.query("select id from documents where kind='invoice' and status in ('Draft','Issued') limit 1")).rows[0];
+  const path = `${id()}.png`;
+  await asUser(db, OWNER, (tx) => tx.query("select save_payment_upi('')"));
+  await assert.rejects(asUser(db, STAFF, (tx) =>
+    tx.query("insert into storage.objects(bucket_id,name) values('payment-qr',$1)", [path])
+  ), /row-level security|permission denied/);
+  await asUser(db, OWNER, (tx) => tx.query(
+    "insert into storage.objects(bucket_id,name) values('payment-qr',$1)", [path]
+  ));
+  await assert.rejects(asUser(db, STAFF, (tx) =>
+    tx.query("select save_payment_qr_image($1)", [path])
+  ), /Owner or Admin access required/);
+  await asUser(db, OWNER, (tx) => tx.query("select save_payment_qr_image($1)", [path]));
+  await asUser(db, OWNER, (tx) => tx.query("select set_invoice_payment_qr($1,true)", [invoice.id]));
+  const snapshot = (await db.query("select business from documents where id=$1", [invoice.id])).rows[0].business;
+  assert.equal(snapshot.payment_qr_path, path);
+  assert.equal(snapshot.upi_id, "");
+  await asUser(db, OWNER, (tx) => tx.query("select save_payment_qr_image('')"));
+  await asUser(db, OWNER, (tx) => tx.query("select set_invoice_payment_qr($1,false)", [invoice.id]));
+});
 await test("only Owner/Admin may edit payments or delete records", async () => {
   await db.query("update profiles set active=true where id=$1", [STAFF]);
   const payment = (await db.query("select * from payments where kind='Receipt' limit 1")).rows[0];

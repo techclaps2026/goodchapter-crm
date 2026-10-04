@@ -860,7 +860,7 @@ export default function CRM({
               {doc.kind === "invoice" &&
                 doc.status !== "Superseded" &&
                 canManageUsers(s.profile.role) &&
-                (s.settings.upi_id || doc.payment_qr_enabled ? (
+                (s.settings.upi_id || s.settings.payment_qr_path || doc.payment_qr_enabled ? (
                   <button
                     className="button"
                     disabled={qrBusy}
@@ -894,6 +894,21 @@ export default function CRM({
                     Set up payment QR ↗
                   </Link>
                 ))}
+              {doc.kind === "invoice" && doc.status !== "Superseded" &&
+                doc.payment_qr_enabled && canManageUsers(s.profile.role) &&
+                (s.settings.upi_id || s.settings.payment_qr_path) &&
+                (doc.business.upi_id !== s.settings.upi_id ||
+                  doc.business.payment_qr_path !== s.settings.payment_qr_path) &&
+                <button className="button" disabled={qrBusy} onClick={() => run(async () => {
+                  setQrBusy(true);
+                  try {
+                    const { error: qrError } = await createClient().rpc("set_invoice_payment_qr", {
+                      p_invoice_id: doc.id, p_enabled: true,
+                    });
+                    if (qrError) throw qrError;
+                    await refresh();
+                  } finally { setQrBusy(false); }
+                })}>{qrBusy ? "Saving…" : "Update payment QR"}</button>}
             </div>
             <div className="row">
               {doc.share_token ? (

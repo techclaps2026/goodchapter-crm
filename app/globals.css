@@ -1404,6 +1404,8 @@ tr.clickable:hover {
   height: 150px;
   max-width: none;
 }
+.payment-qr-settings-preview { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.payment-qr-settings-preview img { width: 140px; height: 140px; object-fit: contain; background: white; border: 1px solid var(--border); padding: 7px; }
 .share-page {
   width: 100%;
   min-width: 0;

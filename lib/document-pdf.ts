@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { CommercialDocument } from "./types";
 import { dateLabel } from "./domain";
-import { invoiceUpiUri } from "./payment-qr";
+import { invoicePaymentQrImageUrl, invoiceUpiUri } from "./payment-qr";
 import QRCode from "qrcode";
 import { quoteImageUrl } from "./quote-images";
 const value = (n: number) =>
@@ -438,7 +438,8 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
   if (d.kind === "invoice")
     appendBlock("PAYMENT DETAILS", d.business.bank_details);
   const upiUri = invoiceUpiUri(d);
-  if (upiUri) {
+  const uploadedQr = invoicePaymentQrImageUrl(d);
+  if (upiUri || uploadedQr) {
     if (y + 52 > 270) {
       pdf.addPage();
       y = 25;
@@ -449,15 +450,30 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
     pdf.text("PAY BY UPI", margin, y);
     pdf.setFont("helvetica", "normal");
     y += 4;
-    const qr = await QRCode.toDataURL(upiUri, { margin: 1, width: 240 });
-    pdf.addImage(qr, "PNG", margin, y, 34, 34);
-    pdf.text(d.business.upi_id, margin + 40, y + 9);
+    let qr: string;
+    let format: "PNG" | "JPEG" = "PNG";
+    if (uploadedQr) {
+      const response = await fetch(uploadedQr);
+      if (!response.ok) throw new Error("The uploaded payment QR could not be loaded");
+      const blob = await response.blob();
+      format = blob.type === "image/jpeg" ? "JPEG" : "PNG";
+      qr = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("The uploaded payment QR could not be read"));
+        reader.readAsDataURL(blob);
+      });
+    } else {
+      qr = await QRCode.toDataURL(upiUri!, { margin: 1, width: 240 });
+    }
+    pdf.addImage(qr, format, margin, y, 34, 34);
+    if (d.business.upi_id) pdf.text(d.business.upi_id, margin + 40, y + 9);
     pdf.text(
       "Enter the outstanding amount before paying.",
       margin + 40,
-      y + 15,
+      y + (d.business.upi_id ? 15 : 9),
     );
-    pdf.text("Confirm payment with The Good Chapter.", margin + 40, y + 21);
+    pdf.text("Confirm payment with The Good Chapter.", margin + 40, y + (d.business.upi_id ? 21 : 15));
     y += 38;
   }
   if (d.kind === "quote" && (d.items.some((item) => item.image_path) || (d.quote_options?.length ?? 0) > 0)) {

@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Image from "next/image";
 import {
   canManageUsers,
   hasOwnerAccess,
@@ -34,6 +35,11 @@ export default function Settings({
   const [savingUpi, setSavingUpi] = useState(false);
   const [upiError, setUpiError] = useState("");
   const [upiSaved, setUpiSaved] = useState(false);
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrBusy, setQrBusy] = useState(false);
+  const [qrError, setQrError] = useState("");
+  const [qrSaved, setQrSaved] = useState("");
+  const qrInput = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -232,8 +238,8 @@ export default function Settings({
           >
             <h2>Invoice payment QR</h2>
             <p>
-              Enter the UPI ID shown in your Google Pay for Business account.
-              You can then add a QR to individual invoices.
+              Enter your business UPI ID or upload the QR from your payment
+              account. You can then show it on individual invoices.
             </p>
             <label>
               Business UPI ID
@@ -263,10 +269,116 @@ export default function Settings({
                 {upiId ? "UPI ID saved." : "UPI ID removed."}
               </p>
             )}
+            <div className="divider" />
+            <h3>Business payment QR image</h3>
+            <p className="muted">
+              PNG or JPG, up to 2 MB. Upload the QR provided by your payment
+              account. It will appear on invoices when payment QR is enabled.
+            </p>
+            {s.settings.payment_qr_path && (
+              <div className="payment-qr-settings-preview">
+                <Image
+                  src={`/api/payment-qr?path=${encodeURIComponent(s.settings.payment_qr_path)}`}
+                  alt="Current business payment QR"
+                  width={140}
+                  height={140}
+                  unoptimized
+                />
+                <button
+                  type="button"
+                  className="button"
+                  disabled={qrBusy}
+                  onClick={async () => {
+                    setQrBusy(true);
+                    setQrError("");
+                    setQrSaved("");
+                    try {
+                      const response = await fetch("/api/payment-qr", {
+                        method: "DELETE",
+                      });
+                      const result = await response.json();
+                      if (!response.ok)
+                        throw new Error(result.error || "Could not remove QR");
+                      await refresh();
+                      setQrSaved("Payment QR removed from Settings.");
+                    } catch (cause) {
+                      setQrError(
+                        cause instanceof Error
+                          ? cause.message
+                          : "Could not remove QR",
+                      );
+                    } finally {
+                      setQrBusy(false);
+                    }
+                  }}
+                >
+                  Remove uploaded QR
+                </button>
+              </div>
+            )}
+            <label>
+              Upload payment QR
+              <input
+                ref={qrInput}
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(event) => {
+                  setQrFile(event.target.files?.[0] ?? null);
+                  setQrError("");
+                  setQrSaved("");
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="button"
+              disabled={qrBusy || !qrFile}
+              onClick={async () => {
+                if (!qrFile) return;
+                setQrBusy(true);
+                setQrError("");
+                setQrSaved("");
+                try {
+                  const body = new FormData();
+                  body.set("file", qrFile);
+                  const response = await fetch("/api/payment-qr", {
+                    method: "POST",
+                    body,
+                  });
+                  const result = await response.json();
+                  if (!response.ok)
+                    throw new Error(result.error || "Could not upload QR");
+                  setQrFile(null);
+                  if (qrInput.current) qrInput.current.value = "";
+                  await refresh();
+                  setQrSaved("Payment QR uploaded.");
+                } catch (cause) {
+                  setQrError(
+                    cause instanceof Error
+                      ? cause.message
+                      : "Could not upload QR",
+                  );
+                } finally {
+                  setQrBusy(false);
+                }
+              }}
+            >
+              {qrBusy ? "Saving…" : "Upload QR"}
+            </button>
+            {qrError && (
+              <p className="form-error" role="alert">
+                {qrError}
+              </p>
+            )}
+            {qrSaved && (
+              <p className="form-success" role="status">
+                {qrSaved}
+              </p>
+            )}
             <p className="muted">
               QR payments must be confirmed in your payment account and recorded
-              in the CRM. Existing invoice QR codes keep the UPI ID saved when
-              they were added.
+              in the CRM. Existing invoices keep the payment details saved when
+              their QR was enabled; update that invoice’s QR to use new details.
             </p>
             <div className="form-footer">
               <button className="button primary" disabled={savingUpi}>
