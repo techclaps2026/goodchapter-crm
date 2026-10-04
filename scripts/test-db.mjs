@@ -1160,6 +1160,24 @@ await test("imported sent mail is private and deduplicated", async () => {
     /permission denied/,
   );
 });
+await test("vendor catalogue storage accepts the vendor folder", async () => {
+  const vendorId = (await call("save_vendor", {
+    name: "Size chart supplier", category: "Apparel", contact_name: "",
+    email: "", phone: "", city: "Delhi NCR", notes: "",
+  })).id;
+  const path = `${vendorId}/${id()}.pdf`;
+  await asUser(db, OWNER, (tx) =>
+    tx.query("insert into storage.objects(bucket_id,name) values('vendor-catalogs',$1)", [path]));
+  const files = await asUser(db, OWNER, (tx) =>
+    tx.query("select name from storage.objects where bucket_id='vendor-catalogs' and name=$1", [path]));
+  assert.equal(files.rows[0].name, path);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("insert into storage.objects(bucket_id,name) values('vendor-catalogs',$1)", [`${id()}/${id()}.pdf`])
+  ), /row-level security/);
+  await asUser(db, OWNER, (tx) =>
+    tx.query("delete from storage.objects where bucket_id='vendor-catalogs' and name=$1", [path]));
+  assert.equal((await db.query("select count(*)::int n from storage.objects where name=$1", [path])).rows[0].n, 0);
+});
 await test("vendor products and private catalogue require a real upload", async () => {
   const vendorId = (await call("save_vendor", {
     name: "Example apparel maker", category: "Apparel",
