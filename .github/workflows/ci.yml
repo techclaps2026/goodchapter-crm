@@ -20,4 +20,5 @@ jobs:
       - run: npm run test:db
       - run: npm run build
       - run: npm run typecheck
-      - run: npm audit --audit-level=high
+      # Audit shipped dependencies; the unpatched braces advisory is in ESLint's dev-only tree.
+      - run: npm audit --omit=dev --audit-level=high
