@@ -572,6 +572,8 @@ p {
 .social-chip { border: 1px solid var(--border); background: var(--muted); padding: 6px 10px; font-size: 12px; }
 .social-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .social-heading p { margin-top: 3px; font-size: 12px; }
+.social-refresh-feedback { margin: 14px 0 0; color: var(--muted-foreground); font-size: 12px; }
+.social-refresh-feedback.form-error { color: var(--destructive); }
 .social-empty { padding: 28px 0 8px; }
 .social-post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; margin-top: 22px; }
 .social-post-card { background: #fff; border: 1px solid var(--border); min-width: 0; overflow: hidden; }
@@ -1295,12 +1297,12 @@ tr.clickable:hover {
   margin: 24px 0;
 }
 .document .document-item-photo { display: block; width: 96px; height: 96px; max-width: 96px; object-fit: contain; margin-bottom: 9px; }
-.quote-options-view { margin: 28px 0 34px; padding-top: 22px; border-top: 1px solid var(--border); }
-.quote-options-view > h3 { margin: 8px 0; font-size: 20px; }
+.quote-options-view { container-type: inline-size; margin: 28px 0 34px; padding-top: 22px; border-top: 1px solid var(--border); }
+.quote-options-view > h3 { margin: 8px 0; font-size: 20px; overflow-wrap: anywhere; }
 .quote-options-view > p { max-width: 610px; line-height: 1.5; color: #71685e; }
 .quote-options-group { margin-top: 22px; }
 .quote-options-group > .row { gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 9px; margin-bottom: 12px; }
-.quote-options-group h4 { margin: 0; font-size: 15px; }
+.quote-options-group h4 { min-width: 0; margin: 0; font-size: 15px; overflow-wrap: anywhere; }
 .quote-options-group > .row span { color: #71685e; font-size: 12px; }
 .quote-options-group .quote-group-note { margin: 0 0 12px; color: #71685e; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
 .quote-engagement { margin: 26px 0; padding: 22px; border: 1px solid var(--border); background: var(--card); }
@@ -1335,17 +1337,29 @@ tr.clickable:hover {
 .quote-visit span { color: var(--muted-foreground); overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .quote-engagement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quote-chart-grid { grid-template-columns: 1fr; } .quote-visit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .quote-visit span:last-child { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .quote-engagement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quote-chart-row { grid-template-columns: 90px minmax(0, 1fr) 24px; } }
-.document .quote-option-card { display: block; min-width: 0; padding: 10px; border: 1px solid var(--border); background: #fff; color: inherit; cursor: default; }
+.document .quote-option-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.document .quote-option-grid-single .quote-option-card { grid-column: 1 / -1; }
+.document .quote-option-card { display: flex; flex-direction: column; min-width: 0; padding: 10px; border: 1px solid var(--border); background: #fff; color: inherit; cursor: default; }
 .document .quote-option-card:has(input) { cursor: pointer; }
 .document .quote-option-card.selected { border-color: var(--secondary); box-shadow: inset 0 0 0 1px var(--secondary); }
-.document .quote-option-card img { display: block; width: 100%; max-width: none; height: 150px; object-fit: contain; background: #faf8f4; }
-.quote-option-placeholder { display: grid; place-items: center; height: 150px; background: #f3efe8; color: #766e64; font-size: 11px; }
-.quote-option-copy { display: grid; align-content: start; gap: 6px; padding: 12px 3px 3px; }
-.quote-option-copy strong { font-size: 13px; }
+.document .quote-option-media { display: block; box-sizing: border-box; width: 100%; aspect-ratio: 1.65; overflow: hidden; padding: 6px; border: 1px solid #eee9e2; background: #faf8f4; }
+.document .quote-option-grid-single .quote-option-media { aspect-ratio: 4.5; }
+.document .quote-option-media img { display: block; width: 100%; max-width: none; height: 100%; object-fit: contain; }
+.quote-option-placeholder { display: grid; place-items: center; width: 100%; height: 100%; background: #f3efe8; color: #766e64; font-size: 11px; }
+.quote-option-copy { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: 12px 3px 3px; }
+.quote-option-copy strong { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
 .quote-option-copy b { color: var(--secondary); font-size: 14px; }
-.quote-option-copy small { white-space: pre-wrap; color: #71685e; line-height: 1.4; }
-.quote-choice { display: flex; align-items: center; gap: 7px; margin-top: 5px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--secondary); font-size: 12px; font-weight: 700; }
+.quote-option-copy small { white-space: pre-wrap; overflow-wrap: anywhere; color: #71685e; line-height: 1.5; }
+.quote-choice { display: flex; align-items: center; gap: 7px; align-self: stretch; margin-top: auto; padding-top: 9px; border-top: 1px solid var(--border); color: var(--secondary); font-size: 12px; font-weight: 700; }
 .quote-choice input { width: 16px; height: 16px; margin: 0; }
+@container (max-width: 680px) {
+  .document .quote-option-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 430px) {
+  .document .quote-option-grid { grid-template-columns: minmax(0, 1fr); }
+  .document .quote-option-media,
+  .document .quote-option-grid-single .quote-option-media { aspect-ratio: 4 / 3; }
+}
 .quote-choice-submit { max-width: 900px; margin: 20px auto 50px; padding: 20px; border: 1px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .quote-choice-submit p { max-width: 580px; margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
 .quote-selection-note { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); background: #f4eee4; font-size: 12px; line-height: 1.5; }

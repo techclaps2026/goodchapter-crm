@@ -116,14 +116,14 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
         image.src = url;
         await image.decode();
         const canvas = document.createElement("canvas");
-        const scale = Math.min(1, 650 / Math.max(image.naturalWidth, image.naturalHeight));
+        const scale = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight));
         canvas.width = Math.round(image.naturalWidth * scale);
         canvas.height = Math.round(image.naturalHeight * scale);
         const context = canvas.getContext("2d");
         if (context) context.fillStyle = "#ffffff";
         context?.fillRect(0, 0, canvas.width, canvas.height);
         context?.drawImage(image, 0, 0, canvas.width, canvas.height);
-        return { data: canvas.toDataURL("image/jpeg", 0.78), width: canvas.width, height: canvas.height };
+        return { data: canvas.toDataURL("image/jpeg", 0.8), width: canvas.width, height: canvas.height };
       } finally {
         URL.revokeObjectURL(url);
       }
@@ -151,8 +151,12 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
   };
   const optionGroups = d.quote_options ?? [];
   for (const [groupIndex, group] of optionGroups.entries()) {
-    const columns = Math.min(3, group.options.length);
+    // Keep the same three-slot rhythm as the preview, even when a group has two options.
+    // A single option uses the full row as a feature card.
+    const columns = group.options.length === 1 ? 1 : 3;
     const cardWidth = (contentWidth - gap * (columns - 1)) / columns;
+    const mediaHeight = (cardWidth - 5) / (columns === 1 ? 4.5 : 1.65);
+    const copyTop = 2.5 + mediaHeight + 6;
     const layoutOption = (option: (typeof group.options)[number]) => {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
@@ -162,7 +166,7 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
       const details = option.details ? lines(option.details, cardWidth - 6) : [];
       const selected = d.quote_selections?.[group.id] === option.id;
       return { option, title, details, selected,
-        height: Math.max(44, 36 + title.length * 4 + details.length * 3.8 + (selected ? 6 : 0)) };
+        height: copyTop + title.length * 4 + details.length * 3.8 + (selected ? 6 : 0) + 4 };
     };
     const firstRowHeight = Math.max(...group.options.slice(0, columns).map((option) => layoutOption(option).height));
     pdf.setFont("helvetica", "normal");
@@ -194,29 +198,29 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
         pdf.setDrawColor(layout.selected ? 118 : 222, layout.selected ? 78 : 216, layout.selected ? 52 : 204);
         pdf.rect(x, y, cardWidth, rowHeight);
         pdf.setFillColor(250, 248, 244);
-        pdf.rect(x + 2.5, y + 2.5, cardWidth - 5, 27, "F");
+        pdf.rect(x + 2.5, y + 2.5, cardWidth - 5, mediaHeight, "F");
         const photo = photos[column];
         if (photo) {
-          const scale = Math.min((cardWidth - 7) / photo.width, 24 / photo.height);
+          const scale = Math.min((cardWidth - 8) / photo.width, (mediaHeight - 3) / photo.height);
           const imageWidth = photo.width * scale;
           const imageHeight = photo.height * scale;
           pdf.addImage(photo.data, "JPEG", x + (cardWidth - imageWidth) / 2,
-            y + 4 + (24 - imageHeight) / 2, imageWidth, imageHeight);
+            y + 2.5 + (mediaHeight - imageHeight) / 2, imageWidth, imageHeight);
         } else {
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(8);
           pdf.setTextColor(118, 110, 100);
-          pdf.text("Product photo pending", x + cardWidth / 2, y + 18, { align: "center" });
+          pdf.text("Product photo pending", x + cardWidth / 2, y + 2.5 + mediaHeight / 2, { align: "center" });
         }
         pdf.setTextColor(24, 23, 21);
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(9);
-        pdf.text(layout.title, x + 3, y + 34);
+        pdf.text(layout.title, x + 3, y + copyTop);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8);
         pdf.setTextColor(105, 98, 90);
         if (layout.details.length)
-          pdf.text(layout.details, x + 3, y + 35 + layout.title.length * 4);
+          pdf.text(layout.details, x + 3, y + copyTop + 1 + layout.title.length * 4);
         if (layout.selected) {
           pdf.setFont("helvetica", "bold");
           pdf.text("Client selected", x + 3, y + rowHeight - 4);

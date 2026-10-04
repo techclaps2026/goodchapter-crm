@@ -46,6 +46,9 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
   const [data, setData] = useState<SocialData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFeedback, setRefreshFeedback] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
   const [channelId, setChannelId] = useState("");
   const [text, setText] = useState("");
@@ -71,10 +74,28 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const load = async () => {
     const response = await fetch("/api/buffer", { cache: "no-store" });
-    const result = await response.json();
+    const result = await response.json() as SocialData & { error?: string };
     if (!response.ok) throw new Error(result.error || "Could not load posts");
     setData(result);
     setChannelId((previous) => previous || result.channels[0]?.id || "");
+    return result;
+  };
+  const refreshPosts = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshFeedback("");
+    setRefreshError("");
+    try {
+      const previousIds = new Set(data?.posts.map((post) => post.id) ?? []);
+      const result = await load();
+      const newPosts = result.posts.filter((post) => !previousIds.has(post.id)).length;
+      const checkedAt = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      setRefreshFeedback(`${newPosts ? `${newPosts} new post${newPosts === 1 ? "" : "s"} loaded` : "No new posts"} · ${result.posts.length} shown · Checked at ${checkedAt}`);
+    } catch (cause) {
+      setRefreshError(cause instanceof Error ? cause.message : "Could not refresh posts");
+    } finally {
+      setRefreshing(false);
+    }
   };
   useEffect(() => {
     fetch("/api/buffer", { cache: "no-store" })
@@ -184,7 +205,10 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
           <div className="social-composer-actions"><label className="social-check"><input type="checkbox" checked={createAnother} onChange={(event) => setCreateAnother(event.target.checked)} /> Create another</label><div><button className="button" type="button" disabled={busy || uploading} onClick={() => void submit(true)}>Save draft</button><button className="button primary" type="button" disabled={busy || uploading || !channelId} onClick={() => void submit(false)}>{busy ? "Submitting…" : mode === "shareNow" ? "Publish now" : mode === "addToQueue" ? "Add to queue" : "Schedule post"}</button></div></div>
         </div><aside className="social-composer-preview"><h3>{channel?.service === "instagram" ? `Instagram ${postType}` : "LinkedIn post"} preview</h3><SocialPreview channel={channel} type={postType} mediaUrl={imageUrl} mediaKind={mediaKind} caption={text} /><p className="social-note">Preview is approximate. The final post may look different on the social network.</p></aside>
       </section>}
-      <section className="panel"><div className="social-heading"><div><h2>Posts</h2><p>Content from your connected channels</p></div><button className="button small" onClick={() => load().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not refresh posts"))}>Refresh</button></div>
+      <section className="panel"><div className="social-heading"><div><h2>Posts</h2><p>Content from your connected channels</p></div><button className="button small" type="button" disabled={refreshing} onClick={() => void refreshPosts()}>{refreshing && <span className="navigation-spinner" aria-hidden="true" />}{refreshing ? "Refreshing…" : "Refresh"}</button></div>
+        {refreshing && <p className="social-refresh-feedback" role="status">Checking Buffer for the latest posts…</p>}
+        {!refreshing && refreshFeedback && <p className="social-refresh-feedback" role="status">{refreshFeedback}</p>}
+        {refreshError && <p className="form-error social-refresh-feedback" role="alert">Refresh failed: {refreshError}</p>}
         {!data.posts.length ? <p className="social-empty">No posts found for these channels.</p> : <div className="social-post-grid">{data.posts.map((post) => {
           const postChannel = data.channels.find((item) => item.id === post.channelId);
           const media = post.assets?.find((asset) => publicImageUrl(asset.thumbnail || asset.source));

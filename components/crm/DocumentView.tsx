@@ -96,14 +96,16 @@ export default function DocumentView({
                 {!shareToken && <span>{group.quantity} per option</span>}
               </div>
               {group.note && <p className="quote-group-note">{group.note}</p>}
-              <div className="quote-option-grid">
+              <div className={`quote-option-grid${group.options.length === 1 ? " quote-option-grid-single" : ""}`}>
                 {group.options.map((option) => {
                   const selected = (selections ?? d.quote_selections)?.[group.id] === option.id;
                   return (
                     <label className={`quote-option-card${selected ? " selected" : ""}`} key={option.id}>
-                      {option.image_path ? (
-                        <img src={quoteImageUrl(option.image_path, shareToken)} alt={option.title} />
-                      ) : <div className="quote-option-placeholder">Product photo pending</div>}
+                      <span className="quote-option-media">
+                        {option.image_path ? (
+                          <img src={quoteImageUrl(option.image_path, shareToken)} alt={option.title} />
+                        ) : <span className="quote-option-placeholder">Product photo pending</span>}
+                      </span>
                       <span className="quote-option-copy">
                         <strong>{option.title}</strong>
                         {option.details && <small>{option.details}</small>}
