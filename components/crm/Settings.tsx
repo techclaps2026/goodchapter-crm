@@ -30,6 +30,8 @@ export default function Settings({
   const [v, setV] = useState(s.settings);
   const [upiId, setUpiId] = useState(s.settings.upi_id);
   const [savingUpi, setSavingUpi] = useState(false);
+  const [upiError, setUpiError] = useState("");
+  const [upiSaved, setUpiSaved] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -162,21 +164,37 @@ export default function Settings({
           <form
             className="panel stack"
             id="payment-qr"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
-              run(async () => {
-                setSavingUpi(true);
-                try {
-                  const { error: saveError } = await createClient().rpc(
-                    "save_payment_upi",
-                    { p_upi_id: upiId },
-                  );
-                  if (saveError) throw saveError;
-                  await refresh();
-                } finally {
-                  setSavingUpi(false);
-                }
-              });
+              const value = upiId.trim().toLowerCase();
+              setUpiError("");
+              setUpiSaved(false);
+              if (value && !/^[a-z0-9._-]+@[a-z0-9._-]+$/.test(value)) {
+                setUpiError(
+                  "Enter a valid UPI ID, such as business@bank. Use the ID, not a payment link or QR image.",
+                );
+                return;
+              }
+              setSavingUpi(true);
+              try {
+                const { error: saveError } = await createClient().rpc(
+                  "save_payment_upi",
+                  { p_upi_id: value },
+                );
+                if (saveError)
+                  throw new Error(saveError.message || "Could not save UPI ID");
+                setUpiId(value);
+                await refresh();
+                setUpiSaved(true);
+              } catch (cause) {
+                setUpiError(
+                  cause instanceof Error
+                    ? cause.message
+                    : "Could not save UPI ID. Please try again.",
+                );
+              } finally {
+                setSavingUpi(false);
+              }
             }}
           >
             <h2>Invoice payment QR</h2>
@@ -188,11 +206,30 @@ export default function Settings({
               Business UPI ID
               <input
                 value={upiId}
-                onChange={(event) => setUpiId(event.target.value)}
+                onChange={(event) => {
+                  setUpiId(event.target.value);
+                  setUpiError("");
+                  setUpiSaved(false);
+                }}
                 placeholder="business@bank"
                 autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                maxLength={120}
+                aria-invalid={Boolean(upiError)}
+                aria-describedby={upiError ? "upi-error" : undefined}
               />
             </label>
+            {upiError && (
+              <p className="form-error" id="upi-error" role="alert">
+                {upiError}
+              </p>
+            )}
+            {upiSaved && (
+              <p className="form-success" role="status">
+                {upiId ? "UPI ID saved." : "UPI ID removed."}
+              </p>
+            )}
             <p className="muted">
               QR payments must be confirmed in your payment account and recorded
               in the CRM. Existing invoice QR codes keep the UPI ID saved when

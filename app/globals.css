@@ -1111,6 +1111,12 @@ tr.clickable:hover {
   font-size: 12px;
   white-space: pre-wrap;
 }
+.form-success {
+  color: var(--success);
+  background: #e6f2ea;
+  padding: 12px;
+  font-size: 12px;
+}
 .form-footer {
   display: flex;
   justify-content: flex-end;
