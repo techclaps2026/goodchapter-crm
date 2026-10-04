@@ -184,6 +184,12 @@ function table(headers: string[], rows: React.ReactNode[][], empty: string, clas
     </div>
   );
 }
+function clientLocation(address: string) {
+  const parts = address.split(/[,\n]+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.at(-1)?.toLowerCase() === "india") parts.pop();
+  const location = parts.slice(-2).map((part) => part.replace(/\b\d{6}\b/g, "").replace(/[\s-]+$/, "").trim()).filter(Boolean);
+  return location.join(", ") || "—";
+}
 function VendorSpeciality({ category, subcategories, productsList }: {
   category: string;
   subcategories: string;
@@ -343,9 +349,9 @@ export default function CRM({
   );
   const edit = (kind: EntityKind, item: unknown, iconOnly = false) => (
     <button
-      className={`button small${iconOnly ? " vendor-action" : ""}`}
-      aria-label={iconOnly ? "Edit vendor" : undefined}
-      title={iconOnly ? "Edit vendor" : undefined}
+      className={`button small${iconOnly ? " record-action" : ""}`}
+      aria-label={iconOnly ? `Edit ${kind}` : undefined}
+      title={iconOnly ? `Edit ${kind}` : undefined}
       onClick={() => setForm({ kind, initial: entityValues(item) })}
     >
       {iconOnly ? <Pencil size={16} aria-hidden="true" /> : "Edit"}
@@ -357,9 +363,9 @@ export default function CRM({
     iconOnly = false,
   ) => (
     <button
-      className={`button small${iconOnly ? " vendor-action" : ""}`}
-      aria-label={iconOnly ? `${item.archived ? "Restore" : "Archive"} vendor` : undefined}
-      title={iconOnly ? `${item.archived ? "Restore" : "Archive"} vendor` : undefined}
+      className={`button small${iconOnly ? " record-action" : ""}`}
+      aria-label={iconOnly ? `${item.archived ? "Restore" : "Archive"} ${kind}` : undefined}
+      title={iconOnly ? `${item.archived ? "Restore" : "Archive"} ${kind}` : undefined}
       disabled={busy}
       onClick={() =>
         run(() => {
@@ -418,7 +424,7 @@ export default function CRM({
     canManageUsers(s.profile.role) ? (
       <button
         key="delete"
-        className={`button small danger${iconOnly ? " vendor-action" : ""}`}
+        className={`button small danger${iconOnly ? " record-action" : ""}`}
         aria-label={iconOnly ? `Delete ${label}` : undefined}
         title={iconOnly ? `Delete ${label}` : undefined}
         disabled={busy}
@@ -1178,15 +1184,18 @@ export default function CRM({
                 {c.email || "—"}
                 <small>{c.phone}</small>
               </span>,
-              c.shipping_address || "—",
+              <span className="client-location" title={c.shipping_address || c.billing_address || undefined} key="location">
+                {clientLocation(c.shipping_address || c.billing_address)}
+              </span>,
               s.orders.filter((o) => o.client_id === c.id).length,
-              <div className="row" key="a">
-                {edit("client", c)}
-                {archive("client", c)}
-                {removeRecord("client", c.id, c.name)}
+              <div className="row record-actions" key="a">
+                {edit("client", c, true)}
+                {archive("client", c, true)}
+                {removeRecord("client", c.id, c.name, [], true)}
               </div>,
             ]),
           "No clients yet",
+          "client-table",
         )}
       </>
     );
@@ -1384,7 +1393,7 @@ export default function CRM({
                       ))
                   : "—"}
               </div>,
-              <div className="row vendor-actions" key="a">
+              <div className="row record-actions" key="a">
                 {edit("vendor", v, true)}
                 {archive("vendor", v, true)}
                 {removeRecord(
