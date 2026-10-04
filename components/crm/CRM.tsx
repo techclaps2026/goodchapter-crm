@@ -185,13 +185,26 @@ function VendorSpeciality({ category, subcategories, productsList }: {
   productsList: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const descriptionRef = useRef<HTMLElement>(null);
   const description = [subcategories, productsList].filter(Boolean).join(" · ");
-  const canExpand = Boolean(productsList) || description.length > 80;
+  useLayoutEffect(() => {
+    if (expanded) return;
+    const element = descriptionRef.current;
+    if (!element) return;
+    const measure = () => setHasOverflow(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [description, expanded]);
   return (
     <div className="vendor-speciality">
       <span>{category}</span>
-      <small className={!expanded && canExpand ? "vendor-speciality-preview" : ""}>{description || "—"}</small>
-      {canExpand && <button type="button" className="text-link vendor-speciality-toggle"
+      <small ref={descriptionRef} className={expanded ? "" : "vendor-speciality-preview"}>
+        {description || "—"}
+      </small>
+      {hasOverflow && <button type="button" className="text-link vendor-speciality-toggle"
         aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         {expanded ? "Show less" : "Show full list"}
       </button>}
