@@ -647,6 +647,51 @@ await test("public links expose only an allowlisted document and can be revoked"
     null,
   );
 });
+await test("shared quotation engagement is counted without exposing raw visits", async () => {
+  const groupId = id();
+  const optionId = id();
+  const q = (await call("save_quote", {
+    title: "Engagement QA", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [line], terms: "",
+    quote_options: [{ id: groupId, title: "Packaging", quantity: 80,
+      options: [{ id: optionId, title: "Gift box", details: "", image_path: "", unit_price: 25 }] }],
+    client_choice_enabled: true,
+  })).id;
+  await call("quote_status", { id: q, status: "Sent" });
+  await call("share_document", { id: q, enabled: true });
+  const token = (await db.query("select share_token from documents where id=$1", [q])).rows[0].share_token;
+  const visit = id();
+  const visitor = id();
+  const record = (event, option = null, percent = null) => asUser(db, null, (tx) =>
+    tx.query("select record_quote_share_event($1::uuid,$2::uuid,$3::uuid,$4::text,$5::uuid,$6::smallint)",
+      [token, visit, visitor, event, option, percent]));
+  await assert.rejects(record("pdf_click"), /Open the quotation/);
+  await record("open");
+  await record("open");
+  await record("scroll", null, 50);
+  await record("scroll", null, 50);
+  await record("scroll", null, 100);
+  await record("pdf_click");
+  await record("option_click", optionId);
+  await record("choices_submit");
+  await assert.rejects(record("option_click", id()), /Invalid quotation option/);
+  const stats = await asUser(db, OWNER, async (tx) =>
+    (await tx.query("select quote_share_stats($1::uuid) as stats", [q])).rows[0].stats);
+  assert.equal(Number(stats.opens), 1);
+  assert.equal(Number(stats.unique_sessions), 1);
+  assert.equal(Number(stats.pdf_clicks), 1);
+  assert.equal(Number(stats.option_clicks), 1);
+  assert.equal(Number(stats.scrolled_halfway), 1);
+  assert.equal(Number(stats.reached_end), 1);
+  assert.equal(Number(stats.choices_submitted), 1);
+  assert.equal(Number(stats.option_clicks_by_id[optionId]), 1);
+  await assert.rejects(asUser(db, null, (tx) =>
+    tx.query("select quote_share_stats($1::uuid)", [q])), /permission denied/);
+  await assert.rejects(asUser(db, null, (tx) =>
+    tx.query("select * from quote_share_events")), /permission denied/);
+  await call("share_document", { id: q, enabled: false });
+  await assert.rejects(record("open"), /unavailable/);
+});
 await test("anonymous callers cannot read internal data, artwork or mutate", async () => {
   for (const fn of [
     "is_member()",

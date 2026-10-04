@@ -41,6 +41,7 @@ import { Badge, Empty, Modal } from "./shared";
 import EntityForm, { type EntityKind } from "./EntityForm";
 import QuoteEditor from "./QuoteEditor";
 import DocumentView from "./DocumentView";
+import QuoteEngagement from "./QuoteEngagement";
 import OrderDetail from "./OrderDetail";
 import Settings from "./Settings";
 import AccountSettings from "./AccountSettings";
@@ -955,6 +956,7 @@ export default function CRM({
               : "Review these choices, then create a revision to confirm the final quantities and total."}</span>
           </div>
         )}
+        {doc.kind === "quote" && doc.status !== "Draft" && <QuoteEngagement doc={doc} />}
         <DocumentView doc={doc} />
       </div>
     );

@@ -1,4 +1,4 @@
-import { sharedDocument } from "@/lib/server";
+import { session, sharedDocument } from "@/lib/server";
 import { notFound } from "next/navigation";
 import SharedDocument from "@/components/crm/SharedDocument";
 export const dynamic = "force-dynamic";
@@ -10,5 +10,6 @@ export default async function Page({
   const { token } = await params;
   const doc = await sharedDocument(token);
   if (!doc) notFound();
-  return <SharedDocument doc={doc} token={token} />;
+  const isTeamMember = await session().then(() => true, () => false);
+  return <SharedDocument doc={doc} token={token} trackEngagement={!isTeamMember && doc.kind === "quote"} />;
 }
