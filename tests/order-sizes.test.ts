@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { unzipSync } from "fflate";
-import { orderSizesWorkbook } from "../lib/order-sizes";
+import { orderSizeChoices, orderSizesWorkbook } from "../lib/order-sizes";
+
+describe("order size choices", () => {
+  it("uses actual order lines and disambiguates duplicate descriptions", () => {
+    const lines = [
+      { description: "Hoodie", quantity: 10, details: "Navy" },
+      { description: "Hoodie", quantity: 20, details: "Black" },
+      { description: "T-shirt", quantity: 30, details: "" },
+      { description: "Hoodie (item 4)", quantity: 4, details: "" },
+      { description: "Hoodie", quantity: 5, details: "" },
+    ];
+    const choices = orderSizeChoices(lines as Parameters<typeof orderSizeChoices>[0]);
+    expect(choices.map((choice) => choice.label)).toEqual([
+      "Hoodie", "Hoodie (item 2)", "T-shirt", "Hoodie (item 4)",
+      "Hoodie (item 5)",
+    ]);
+    expect(choices[1]).toMatchObject({ quantity: 20, details: "Black" });
+  });
+});
 
 describe("order size vendor export", () => {
   it("creates an Excel sheet with text cells and escaped client input", () => {

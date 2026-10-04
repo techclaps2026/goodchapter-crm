@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const schema = z.object({
   orderId: z.uuid(),
-  items: z.array(z.string().trim().min(1).max(80)).min(1).max(12),
+  items: z.array(z.string().trim().min(1).max(80)).min(1).max(100),
   enabled: z.boolean(),
 });
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success)
       return NextResponse.json(
-        { error: "Add 1 to 12 distinct item names" },
+        { error: "Select 1 to 100 distinct order items" },
         { status: 400 },
       );
     const { orderId, items, enabled } = parsed.data;

@@ -1431,12 +1431,24 @@ tr.clickable:hover {
 .sizes-share-link { display: flex; align-items: end; gap: 10px; margin-top: 18px; }
 .sizes-share-link label { flex: 1; min-width: 0; }
 .sizes-share-link input { width: 100%; min-width: 0; }
+.order-size-choices { border: 1px solid var(--border); }
+.order-size-choices-title { padding: 12px 16px; background: var(--muted); font-size: 12px; font-weight: 600; }
+label.order-size-choice { display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+.order-size-choice input { flex: none; margin: 0; }
+.order-size-choice-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; line-height: 1.35; }
+.order-size-choice-copy strong { font-weight: 600; overflow-wrap: anywhere; }
+.order-size-choice-copy small { color: var(--muted-foreground); font-weight: 400; overflow-wrap: anywhere; }
+.order-size-choice-quantity { flex: none; color: var(--muted-foreground); font-size: 12px; white-space: nowrap; }
+.order-size-choices-empty { padding: 16px; color: var(--muted-foreground); }
+.order-size-legacy-note { margin-top: 12px; color: var(--muted-foreground); font-size: 12px; }
 @media (max-width: 600px) {
   .sizes-page { padding: 24px 14px 60px; }
   .sizes-card { padding: 18px; }
   .sizes-grid { grid-template-columns: 1fr; }
   .sizes-section-head, .sizes-save, .sizes-share-link { align-items: stretch; flex-direction: column; }
   .sizes-section-head .button, .sizes-save .button, .sizes-share-link .button { justify-content: center; }
+  label.order-size-choice { flex-wrap: wrap; }
+  .order-size-choice-quantity { margin-left: 30px; }
 }
 .print-actions {
   display: flex;

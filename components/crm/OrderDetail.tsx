@@ -7,7 +7,7 @@ import { ORDER_STAGES, hasOwnerAccess } from "@/lib/types";
 import { money, orderMoney, dateLabel } from "@/lib/domain";
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
-import { orderSizesWorkbook } from "@/lib/order-sizes";
+import { orderSizeChoices, orderSizesWorkbook } from "@/lib/order-sizes";
 const subscribeOrigin = () => () => {};
 const clientOrigin = () => window.location.origin;
 const serverOrigin = () => "";
@@ -37,7 +37,9 @@ export default function OrderDetail({
   const sizeForm = s.order_size_forms.find(
     (record) => record.order_id === o.id,
   );
-  const [sizeItems, setSizeItems] = useState(sizeForm?.items.join("\n") ?? "");
+  const [selectedSizeItems, setSelectedSizeItems] = useState(
+    sizeForm?.items ?? [],
+  );
   const [sizeBusy, setSizeBusy] = useState(false);
   const [sizeMessage, setSizeMessage] = useState("");
   const [sizeError, setSizeError] = useState("");
@@ -48,6 +50,11 @@ export default function OrderDetail({
   );
   const uploadKey = useRef(crypto.randomUUID());
   const q = s.documents.find((d) => d.id === o.quote_id)!;
+  const sizeChoices = orderSizeChoices(q.items);
+  const savedSizeItems = sizeForm?.items ?? [];
+  const unlistedSizeItems = savedSizeItems.filter(
+    (item) => !sizeChoices.some((choice) => choice.label === item),
+  );
   const invoice = s.documents.find(
     (d) =>
       d.order_id === o.id && d.kind === "invoice" && d.status !== "Superseded",
@@ -62,10 +69,11 @@ export default function OrderDetail({
     setSizeMessage("");
     setSizeError("");
     try {
-      const items = sizeItems
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean);
+      const items = enabled
+        ? sizeChoices
+            .filter((choice) => selectedSizeItems.includes(choice.label))
+            .map((choice) => choice.label)
+        : savedSizeItems;
       const response = await fetch("/api/order-sizes/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,7 +82,7 @@ export default function OrderDetail({
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error || "Could not save size form");
-      setSizeItems(result.items.join("\n"));
+      setSelectedSizeItems(result.items);
       await refresh();
       setSizeMessage(
         enabled ? "Size form ready to share." : "Size link closed.",
@@ -243,21 +251,40 @@ export default function OrderDetail({
               Create a private form for the client to add names and sizes.
               Download one consolidated sheet to give the vendor for printing.
             </p>
-            <label>
-              Items that need sizes · one per line
-              <textarea
-                value={sizeItems}
-                onChange={(event) => setSizeItems(event.target.value)}
-                placeholder={"Hoodie\nT-shirt"}
-                disabled={sizeBusy || disabled}
-                rows={3}
-              />
-            </label>
+            <div className="order-size-choices" role="group" aria-label="Order items that need sizes">
+              <p className="order-size-choices-title">Select the order items that need sizes</p>
+              {sizeChoices.length ? sizeChoices.map((choice, index) => (
+                <label className="order-size-choice" key={`${choice.label}-${index}`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSizeItems.includes(choice.label)}
+                    disabled={sizeBusy || disabled}
+                    onChange={(event) => {
+                      setSelectedSizeItems((selected) => event.target.checked
+                        ? [...selected, choice.label]
+                        : selected.filter((item) => item !== choice.label));
+                      setSizeError("");
+                    }}
+                  />
+                  <span className="order-size-choice-copy">
+                    <strong>{choice.description}</strong>
+                    {choice.details && <small>{choice.details}</small>}
+                  </span>
+                  <span className="order-size-choice-quantity">{choice.quantity} units</span>
+                </label>
+              )) : <p className="order-size-choices-empty">Add items to the order to collect sizes.</p>}
+            </div>
+            {unlistedSizeItems.length > 0 && (
+              <p className="order-size-legacy-note">
+                This form already has size categories outside the order: {unlistedSizeItems.join(", ")}.
+                Existing responses are preserved. Categories with submitted sizes cannot be removed from this form.
+              </p>
+            )}
             <div className="row" style={{ marginTop: 16, flexWrap: "wrap" }}>
               <button
                 type="button"
                 className="button primary"
-                disabled={sizeBusy || disabled}
+                disabled={sizeBusy || disabled || !selectedSizeItems.length || !sizeChoices.length}
                 onClick={() => configureSizes(true)}
               >
                 {sizeBusy

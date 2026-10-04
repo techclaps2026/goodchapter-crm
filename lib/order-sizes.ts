@@ -1,5 +1,23 @@
 import { zipSync } from "fflate";
-import type { OrderSizeEntry } from "./types";
+import type { Line, OrderSizeEntry } from "./types";
+
+/** The size form stores item names, so derive distinct, stable names from order lines. */
+export function orderSizeChoices(items: Line[]) {
+  const used = new Set<string>();
+  return items.map((item, index) => {
+    const description = item.description.trim() || `Item ${index + 1}`;
+    let label = description.slice(0, 80).trim();
+    if (used.has(label.toLocaleLowerCase())) {
+      let duplicateNumber = index + 1;
+      do {
+        const suffix = ` (item ${duplicateNumber++})`;
+        label = `${description.slice(0, 80 - suffix.length).trim()}${suffix}`;
+      } while (used.has(label.toLocaleLowerCase()));
+    }
+    used.add(label.toLocaleLowerCase());
+    return { label, description, quantity: item.quantity, details: item.details };
+  });
+}
 
 const xml = (value: string) =>
   value

@@ -1328,6 +1328,15 @@ await test("client size link saves rows and keeps other orders private", async (
     [sizeOrder, ["Hoodie", "T-shirt"], true],
   ))).rows[0].form;
   assert.equal(configured.items.length, 2);
+  const expanded = (await asUser(db, OWNER, (tx) => tx.query(
+    "select configure_order_sizes($1,$2::text[],$3) as form",
+    [sizeOrder, Array.from({ length: 13 }, (_, index) => `Item ${index + 1}`), true],
+  ))).rows[0].form;
+  assert.equal(expanded.items.length, 13);
+  await asUser(db, OWNER, (tx) => tx.query(
+    "select configure_order_sizes($1,$2::text[],$3)",
+    [sizeOrder, ["Hoodie", "T-shirt"], true],
+  ));
   const shared = (await asUser(db, null, (tx) => tx.query(
     "select shared_order_sizes($1::uuid) as form", [configured.share_token],
   ))).rows[0].form;
