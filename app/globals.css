@@ -272,6 +272,7 @@ p {
   gap: 12px;
   flex-wrap: wrap;
 }
+.payment-receipt-actions { gap: 7px; margin-top: 8px; }
 .between {
   justify-content: space-between;
 }

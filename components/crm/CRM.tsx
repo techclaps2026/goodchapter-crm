@@ -47,6 +47,7 @@ import QuoteEditor from "./QuoteEditor";
 import DocumentView from "./DocumentView";
 import QuoteEngagement from "./QuoteEngagement";
 import OrderDetail from "./OrderDetail";
+import PaymentReceiptActions from "./PaymentReceiptActions";
 import Settings from "./Settings";
 import AccountSettings from "./AccountSettings";
 import InvoiceGenerator from "./InvoiceGenerator";
@@ -1533,12 +1534,13 @@ export default function CRM({
               money(p.amount),
               p.method,
               p.reference || "—",
-              canManageUsers(s.profile.role) ? (
-                <div className="row" key="actions">
+              <div className="row" key="actions">
+                <PaymentReceiptActions payment={p} snapshot={s} />
+                {canManageUsers(s.profile.role) && <>
                   {edit("payment", p)}
                   {removeRecord("payment", p.id, p.reference || "this payment")}
-                </div>
-              ) : null,
+                </>}
+              </div>,
             ]),
           "No payments recorded",
         )}

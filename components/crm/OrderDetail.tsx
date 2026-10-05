@@ -8,6 +8,7 @@ import { money, orderMoney, dateLabel } from "@/lib/domain";
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
 import { orderSizeChoices, orderSizesWorkbook } from "@/lib/order-sizes";
+import PaymentReceiptActions from "./PaymentReceiptActions";
 const subscribeOrigin = () => () => {};
 const clientOrigin = () => window.location.origin;
 const serverOrigin = () => "";
@@ -693,6 +694,7 @@ export default function OrderDetail({
                   <p style={{ fontSize: 11 }}>
                     {p.method} · {p.reference || p.kind}
                   </p>
+                  <PaymentReceiptActions payment={p} snapshot={s} />
                 </div>
               ))}
           </section>
