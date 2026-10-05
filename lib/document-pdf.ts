@@ -5,6 +5,7 @@ import { dateLabel } from "./domain";
 import { invoicePaymentQrImageUrl, invoiceUpiUri } from "./payment-qr";
 import QRCode from "qrcode";
 import { quoteImageUrl } from "./quote-images";
+import { drawDocumentFooter, drawDocumentHeader } from "./document-pdf-brand";
 const value = (n: number) =>
   "INR " +
   Number(n).toLocaleString("en-IN", {
@@ -12,7 +13,7 @@ const value = (n: number) =>
     maximumFractionDigits: 2,
   });
 
-async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
+async function buildSelectionPdf(d: CommercialDocument, shareToken?: string, logoDataUrl?: string) {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const margin = 17;
   const contentWidth = 176;
@@ -32,30 +33,7 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
     pdf.text(wrapped, x, top);
     return top + wrapped.length * step;
   };
-  pdf.setFont("helvetica");
-  pdf.setTextColor(24, 23, 21);
-  try {
-    const logo = new Image();
-    logo.src = "/logo-dark.svg";
-    await logo.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = 935;
-    canvas.height = 232;
-    canvas.getContext("2d")!.drawImage(logo, 0, 0, canvas.width, canvas.height);
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, 16, 70, 17.4);
-  } catch {
-    pdf.setFontSize(16);
-    pdf.text(d.business.company_name, margin, 26);
-  }
-  pdf.setFontSize(9);
-  pdf.text("SELECTION PROPOSAL", 193, 21, { align: "right" });
-  pdf.setFontSize(12);
-  pdf.setFont("helvetica", "bold");
-  pdf.text(d.ref, 193, 29, { align: "right" });
-  pdf.setFont("helvetica", "normal");
-  pdf.setDrawColor(24, 23, 21);
-  pdf.setLineWidth(0.45);
-  pdf.line(margin, 41, 193, 41);
+  await drawDocumentHeader(pdf, d.business.company_name, "SELECTION PROPOSAL", d.ref, logoDataUrl);
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(15);
@@ -249,46 +227,16 @@ async function buildSelectionPdf(d: CommercialDocument, shareToken?: string) {
       y += 4.5;
     }
   }
-  for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
-    pdf.setPage(page);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-    pdf.setTextColor(110, 103, 94);
-    pdf.text(`${d.business.company_name} | ${d.ref}`, margin, 285);
-    pdf.text(`${page} / ${pdf.getNumberOfPages()}`, 193, 285, { align: "right" });
-  }
+  drawDocumentFooter(pdf, d.business.company_name, d.ref);
   return pdf;
 }
 
-export async function buildDocumentPdf(d: CommercialDocument, shareToken?: string) {
+export async function buildDocumentPdf(d: CommercialDocument, shareToken?: string, logoDataUrl?: string) {
   const selection = d.kind === "quote" && d.pricing_mode === "selection";
-  if (selection) return buildSelectionPdf(d, shareToken);
+  if (selection) return buildSelectionPdf(d, shareToken, logoDataUrl);
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const width = 210;
   const margin = 17;
-  pdf.setFont("helvetica");
-  pdf.setTextColor(20, 19, 17);
-  try {
-    const img = new Image();
-    img.src = "/logo-dark.svg";
-    await img.decode();
-    const c = document.createElement("canvas");
-    c.width = 935;
-    c.height = 232;
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    pdf.addImage(c.toDataURL("image/png"), "PNG", margin, 16, 70, 17.4);
-  } catch {
-    pdf.setFontSize(18);
-    pdf.text(d.business.company_name, margin, 25);
-  }
-  pdf.setFontSize(10);
-  pdf.text(selection ? "SELECTION PROPOSAL" : d.kind === "quote" ? "QUOTATION" : "INVOICE", width - margin, 21, {
-    align: "right",
-  });
-  pdf.setFontSize(12);
-  pdf.text(d.ref, width - margin, 29, { align: "right" });
-  pdf.setDrawColor(40, 38, 34);
-  pdf.line(margin, 40, width - margin, 40);
+  await drawDocumentHeader(pdf, d.business.company_name, d.kind === "quote" ? "QUOTATION" : "INVOICE", d.ref, logoDataUrl);
   let y = 48;
   pdf.setFontSize(9);
   const textBlock = (
@@ -577,15 +525,7 @@ export async function buildDocumentPdf(d: CommercialDocument, shareToken?: strin
         : "Alternative option prices are for comparison. Final choices need a revised quotation.", margin, y + 3);
     }
   }
-  for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
-    pdf.setPage(page);
-    pdf.setTextColor(110, 103, 94);
-    pdf.setFontSize(8);
-    pdf.text(`${d.business.company_name} | ${d.ref}`, margin, 285);
-    pdf.text(`${page} / ${pdf.getNumberOfPages()}`, 193, 285, {
-      align: "right",
-    });
-  }
+  drawDocumentFooter(pdf, d.business.company_name, d.ref);
   return pdf;
 }
 export async function downloadDocument(d: CommercialDocument, shareToken?: string) {

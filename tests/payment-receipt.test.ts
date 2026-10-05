@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createPaymentReceiptPdf } from "../lib/payment-receipt";
 import type { Payment, Snapshot } from "../lib/types";
 
@@ -28,22 +28,27 @@ const snapshot = {
 } as unknown as Snapshot;
 
 describe("payment receipt PDF", () => {
-  it("contains the payment, order and client without exposing internal notes", () => {
-    const { pdf, filename } = createPaymentReceiptPdf(snapshot, payment);
+  it("contains the payment, order and client without exposing internal notes", async () => {
+    const logo = readFileSync(new URL("../public/logo-dark-pdf.png", import.meta.url));
+    const { pdf, filename } = await createPaymentReceiptPdf(snapshot, payment, `data:image/png;base64,${logo.toString("base64")}`);
     const output = pdf.output();
     expect(filename).toBe("RCPT-20261004-E58DB678.pdf");
     expect(pdf.getNumberOfPages()).toBe(1);
     expect(output).toContain("PAYMENT RECEIPT");
     expect(output).toContain("O-2026-0041");
     expect(output).toContain("Northstar Studio");
+    expect(output).toContain("GSTIN: 03BCEPP1548K1ZL");
+    expect(output).toContain("PAYMENT DATE");
+    expect(output).toContain("TRANSACTION REFERENCE");
     expect(output).not.toContain(payment.notes);
+    expect((pdf.internal as unknown as { collections: { addImage_images?: Record<string, unknown> } }).collections.addImage_images).toBeTruthy();
     if (process.env.RECEIPT_QA_OUTPUT) {
       writeFileSync(process.env.RECEIPT_QA_OUTPUT, Buffer.from(pdf.output("arraybuffer")));
     }
   });
 
-  it("labels a refund as a refund acknowledgement", () => {
-    const { pdf, filename } = createPaymentReceiptPdf(snapshot, {
+  it("labels a refund as a refund acknowledgement", async () => {
+    const { pdf, filename } = await createPaymentReceiptPdf(snapshot, {
       ...payment,
       id: "f67bc678-9d25-44cf-aeb3-3bd8843cbbd2",
       kind: "Refund",

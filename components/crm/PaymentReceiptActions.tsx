@@ -28,7 +28,7 @@ export default function PaymentReceiptActions({
     setBusy(true);
     try {
       const { createPaymentReceiptPdf } = await import("@/lib/payment-receipt");
-      const { pdf, filename } = createPaymentReceiptPdf(snapshot, payment);
+      const { pdf, filename } = await createPaymentReceiptPdf(snapshot, payment);
       const file = new File([pdf.output("blob")], filename, { type: "application/pdf" });
       let canShareFile = false;
       if (share && typeof navigator.share === "function" && typeof navigator.canShare === "function") {

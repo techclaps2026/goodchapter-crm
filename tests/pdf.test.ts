@@ -3,6 +3,7 @@ import { buildDocumentPdf } from "../lib/document-pdf";
 import { priceLines, blankLine } from "../lib/domain";
 import type { CommercialDocument } from "../lib/types";
 import { writeFile, mkdir } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 it("paginates merchandise documents and omits private record fields", async () => {
   const pricing = priceLines(
@@ -49,7 +50,8 @@ it("paginates merchandise documents and omits private record fields", async () =
     notes: "INTERNAL-DO-NOT-DISCLOSE",
     cost: 987654321,
   } as unknown as CommercialDocument;
-  const pdf = await buildDocumentPdf(d);
+  const logo = readFileSync(new URL("../public/logo-dark-pdf.png", import.meta.url));
+  const pdf = await buildDocumentPdf(d, undefined, `data:image/png;base64,${logo.toString("base64")}`);
   expect(pdf.getNumberOfPages()).toBeGreaterThan(2);
   const output = pdf.output();
   expect(output).toContain("Merchandise item 45");
