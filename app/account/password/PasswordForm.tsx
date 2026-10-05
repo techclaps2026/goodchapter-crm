@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { createClient } from "@/lib/supabase/client";
 
@@ -92,7 +93,7 @@ export default function PasswordForm() {
           </p>
         )}
         <button className="button primary" disabled={busy}>
-          {busy ? "Saving…" : "Save password →"}
+          {busy ? "Saving…" : <>Save password <ArrowRight className="inline-arrow" aria-hidden="true" /></>}
         </button>
         <div className="auth-options">
           <Link href="/account">Back to my account</Link>

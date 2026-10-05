@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { Role } from "@/lib/types";
 import { canManageUsers } from "@/lib/types";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { ArrowUpRight } from "lucide-react";
 
 type MailSettings = {
   sender_name: string;
@@ -209,7 +210,7 @@ export default function MailIntegration({
               target="_blank"
               rel="noreferrer"
             >
-              Open Resend webhooks ↗
+              Open Resend webhooks <ArrowUpRight className="inline-arrow" aria-hidden="true" />
             </a>
           </div>
         </form>

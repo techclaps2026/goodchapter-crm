@@ -2,7 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bookmark, Heart, ImagePlus, Instagram, MessageCircle, MoreHorizontal, Play, Send, X } from "lucide-react";
+import { ArrowRight, Bookmark, Heart, ImagePlus, Instagram, MessageCircle, MoreHorizontal, Play, Send, X } from "lucide-react";
 import { canManageUsers, type Role } from "@/lib/types";
 import type { BufferChannel, BufferPost, BufferTag } from "@/lib/buffer";
 import { createClient } from "@/lib/supabase/client";
@@ -178,7 +178,7 @@ export default function SocialMedia({ role, userId, demo }: { role: Role; userId
   };
   if (!data && !error) return <div className="panel social-loading" role="status" aria-live="polite"><span className="navigation-spinner" aria-hidden="true" /> Loading connected channels…</div>;
   return <div className="stack">
-    {!data?.connected && <section className="panel"><h2>Connect your social channels</h2><p>Connect Instagram or LinkedIn in Buffer, then add your Buffer API key in CRM settings.</p><Link className="button primary" href="/settings#buffer">Connection settings →</Link></section>}
+    {!data?.connected && <section className="panel"><h2>Connect your social channels</h2><p>Connect Instagram or LinkedIn in Buffer, then add your Buffer API key in CRM settings.</p><Link className="button primary" href="/settings#buffer">Connection settings <ArrowRight className="inline-arrow" aria-hidden="true" /></Link></section>}
     {data?.connected && <>
       <section className="panel social-toolbar"><div><h2>Social Media</h2><p>{data.organization} · {data.channels.length} Instagram/LinkedIn channel{data.channels.length === 1 ? "" : "s"}</p>
         <div className="social-channel-list">{data.channels.map((item) => <span className="social-chip" key={item.id}>{item.service === "instagram" ? "Instagram" : "LinkedIn"} · {item.name}</span>)}</div>

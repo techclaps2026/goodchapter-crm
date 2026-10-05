@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { createClient } from "@/lib/supabase/client";
 
@@ -134,11 +135,11 @@ export default function LoginForm({ expiredLink }: { expiredLink: boolean }) {
         <button className="button primary" disabled={busy}>
           {busy
             ? "Please wait…"
-            : mode === "password"
-              ? "Sign in →"
-              : mode === "link"
-                ? "Email me a sign-in link →"
-                : "Email me a password link →"}
+            : <>{mode === "password"
+                ? "Sign in"
+                : mode === "link"
+                  ? "Email me a sign-in link"
+                  : "Email me a password link"} <ArrowRight className="inline-arrow" aria-hidden="true" /></>}
         </button>
         {feedback && (
           <p

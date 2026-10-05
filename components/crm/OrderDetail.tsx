@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Upload, FileText, ExternalLink, Download, Copy } from "lucide-react";
+import { Upload, FileText, ExternalLink, Download, Copy, ArrowUpRight } from "lucide-react";
 import type { Snapshot, Order } from "@/lib/types";
 import { ORDER_STAGES, hasOwnerAccess } from "@/lib/types";
 import { money, orderMoney, dateLabel } from "@/lib/domain";
@@ -149,7 +149,7 @@ export default function OrderDetail({
             <div className="section-title">
               <h2>Order brief</h2>
               <Link className="text-link" href={"/quotations/" + q.id}>
-                View accepted quote ↗
+                View accepted quote <ArrowUpRight className="inline-arrow" aria-hidden="true" />
               </Link>
             </div>
             <p>
@@ -650,7 +650,7 @@ export default function OrderDetail({
             <div className="divider" />
             {invoice ? (
               <Link className="text-link" href={"/invoices/" + invoice.id}>
-                {invoice.ref} · {invoice.status} ↗
+                {invoice.ref} · {invoice.status} <ArrowUpRight className="inline-arrow" aria-hidden="true" />
               </Link>
             ) : (
               <button

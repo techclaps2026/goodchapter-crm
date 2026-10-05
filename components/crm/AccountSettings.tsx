@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { canManageUsers, roleLabels, type Snapshot } from "@/lib/types";
 
 export default function AccountSettings({
@@ -190,7 +191,7 @@ export default function AccountSettings({
           </div>
           {!s.demo && (
             <Link className="button" href="/account/password">
-              Set or change password →
+              Set or change password <ArrowRight className="inline-arrow" aria-hidden="true" />
             </Link>
           )}
         </section>
@@ -203,7 +204,7 @@ export default function AccountSettings({
           </p>
           {canManageUsers(s.profile.role) && (
             <Link className="text-link" href="/users">
-              Manage users and roles →
+              Manage users and roles <ArrowRight className="inline-arrow" aria-hidden="true" />
             </Link>
           )}
         </section>
@@ -215,7 +216,7 @@ export default function AccountSettings({
               conversations
             </p>
             <Link className="text-link" href="/settings#integrations">
-              View social & communication connections →
+              View social & communication connections <ArrowRight className="inline-arrow" aria-hidden="true" />
             </Link>
           </section>
         )}

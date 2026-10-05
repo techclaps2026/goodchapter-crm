@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
+import { ArrowUpRight } from "lucide-react";
 import type { CommercialDocument } from "@/lib/types";
 import { invoicePaymentQrImageUrl, invoiceUpiUri } from "@/lib/payment-qr";
 
@@ -36,7 +37,7 @@ export default function PaymentQr({ doc }: { doc: CommercialDocument }) {
         {doc.business.upi_id && <p>Payee: {doc.business.upi_id}</p>}
         {uri && (
           <a href={uri} className="text-link">
-            Open UPI app ↗
+            Open UPI app <ArrowUpRight className="inline-arrow" aria-hidden="true" />
           </a>
         )}
       </div>

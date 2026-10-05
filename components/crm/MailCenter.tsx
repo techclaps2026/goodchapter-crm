@@ -4,6 +4,7 @@ import type { Client, Role } from "@/lib/types";
 import { canManageUsers } from "@/lib/types";
 import { mergeMail } from "@/lib/mail";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { ArrowLeft } from "lucide-react";
 
 type ExternalRecipient = { name: string; email: string };
 
@@ -1116,7 +1117,7 @@ export default function MailCenter({
                   setActiveSent(null);
                 }}
               >
-                ← Back to messages
+                <ArrowLeft className="inline-arrow" aria-hidden="true" /> Back to messages
               </button>
               {!campaign && !sent && (
                 <div className="mail-read-empty">
@@ -1334,7 +1335,7 @@ export default function MailCenter({
                 className="button small mail-back"
                 onClick={() => setActiveInbox(null)}
               >
-                ← Back to inbox
+                <ArrowLeft className="inline-arrow" aria-hidden="true" /> Back to inbox
               </button>
               {!inbox && (
                 <div className="mail-read-empty">

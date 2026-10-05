@@ -259,6 +259,13 @@ p {
   text-align: left;
   font-weight: 500;
 }
+.inline-arrow {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.13em;
+  flex: none;
+}
 .row {
   display: flex;
   align-items: center;

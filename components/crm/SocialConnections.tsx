@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { canManageUsers, type Role } from "@/lib/types";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { ArrowUpRight } from "lucide-react";
 import { Badge } from "./shared";
 
 type Platform = "instagram" | "linkedin";
@@ -257,7 +258,7 @@ export default function SocialConnections({ role }: { role: Role }) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Open {title} developer portal ↗
+                    Open {title} developer portal <ArrowUpRight className="inline-arrow" aria-hidden="true" />
                   </a>
                 </div>
               </form>

@@ -838,7 +838,7 @@ export default function CRM({
               {doc.kind === "invoice" && doc.order_id && (
                 <>
                   <Link className="text-link" href={"/orders/" + doc.order_id}>
-                    Open order ↗
+                    Open order <ArrowUpRight className="inline-arrow" aria-hidden="true" />
                   </Link>
                   {doc.status !== "Superseded" &&
                     s.orders.find((o) => o.id === doc.order_id)?.status !==
@@ -891,7 +891,7 @@ export default function CRM({
                   </button>
                 ) : (
                   <Link className="text-link" href="/settings#payment-qr">
-                    Set up payment QR ↗
+                    Set up payment QR <ArrowUpRight className="inline-arrow" aria-hidden="true" />
                   </Link>
                 ))}
               {doc.kind === "invoice" && doc.status !== "Superseded" &&
@@ -934,13 +934,13 @@ export default function CRM({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    WhatsApp ↗
+                    WhatsApp <ArrowUpRight className="inline-arrow" aria-hidden="true" />
                   </a>
                   <a
                     className="button small"
                     href={`mailto:${doc.customer.email}?subject=${encodeURIComponent(doc.ref + " · " + doc.title)}&body=${encodeURIComponent("Your document: " + (typeof window !== "undefined" ? window.location.origin : "") + "/share/" + doc.share_token)}`}
                   >
-                    Open email app ↗
+                    Open email app <ArrowUpRight className="inline-arrow" aria-hidden="true" />
                   </a>
                   <button
                     className="button small"
@@ -1166,7 +1166,7 @@ export default function CRM({
                     className="button small"
                     href={"/clients/" + l.client_id}
                   >
-                    Client ↗
+                    Client <ArrowUpRight className="inline-arrow" aria-hidden="true" />
                   </Link>
                 ) : (
                   <button
@@ -1864,7 +1864,7 @@ function Dashboard({
               {activeOrders.length} active orders
             </span>
           </h2>
-          <Link href="/orders">All orders ↗</Link>
+          <Link href="/orders">All orders <ArrowUpRight className="inline-arrow" aria-hidden="true" /></Link>
         </div>
         {table(
           [
@@ -1899,7 +1899,7 @@ function Dashboard({
         <section>
           <div className="section-title">
             <h2>Needs a little attention</h2>
-            <Link href="/followups">All follow-ups ↗</Link>
+            <Link href="/followups">All follow-ups <ArrowUpRight className="inline-arrow" aria-hidden="true" /></Link>
           </div>
           <div className="panel flush">
             {due.map((f) => (
@@ -1932,7 +1932,7 @@ function Dashboard({
         <section>
           <div className="section-title">
             <h2>Conversations to conversions</h2>
-            <Link href="/leads">Pipeline ↗</Link>
+            <Link href="/leads">Pipeline <ArrowUpRight className="inline-arrow" aria-hidden="true" /></Link>
           </div>
           <div className="panel">
             <div className="row between">

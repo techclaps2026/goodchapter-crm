@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { money } from "@/lib/domain";
 import type { Snapshot } from "@/lib/types";
 import type { Mutate } from "./use-crm";
@@ -40,7 +41,7 @@ export default function InvoiceGenerator({
         </p>
         <div className="row">
           <Link className="button primary" href="/quotations">
-            View quotations →
+            View quotations <ArrowRight className="inline-arrow" aria-hidden="true" />
           </Link>
           <Link className="button" href="/orders">
             View orders
@@ -104,7 +105,7 @@ export default function InvoiceGenerator({
       )}
       <div className="form-footer">
         <button className="button primary" disabled={busy || !orderId}>
-          Generate draft invoice →
+          Generate draft invoice <ArrowRight className="inline-arrow" aria-hidden="true" />
         </button>
       </div>
     </form>
