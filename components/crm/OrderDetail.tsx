@@ -1,10 +1,11 @@
 "use client";
 import { useState, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Upload, FileText, ExternalLink, Download, Copy, ArrowUpRight } from "lucide-react";
-import type { Snapshot, Order } from "@/lib/types";
+import { Upload, FileText, ExternalLink, Download, Copy, ArrowUpRight, Plus } from "lucide-react";
+import type { Snapshot, Order, Expense } from "@/lib/types";
 import { ORDER_STAGES, hasOwnerAccess } from "@/lib/types";
 import { money, orderMoney, dateLabel } from "@/lib/domain";
+import { orderProfit } from "@/lib/expenses";
 import type { Mutate } from "./use-crm";
 import { Badge } from "./shared";
 import { orderSizeChoices, orderSizesWorkbook } from "@/lib/order-sizes";
@@ -20,6 +21,8 @@ export default function OrderDetail({
   refresh,
   onPayment,
   onInvoice,
+  onExpense,
+  expenseActions,
 }: {
   s: Snapshot;
   order: Order;
@@ -28,6 +31,8 @@ export default function OrderDetail({
   refresh: () => Promise<unknown>;
   onPayment: () => void;
   onInvoice: (id: string) => void;
+  onExpense: () => void;
+  expenseActions: (expense: Expense) => React.ReactNode;
 }) {
   const [form, setForm] = useState({ ...o });
   const [error, setError] = useState("");
@@ -61,6 +66,11 @@ export default function OrderDetail({
       d.order_id === o.id && d.kind === "invoice" && d.status !== "Superseded",
   );
   const m = orderMoney(s, o.id);
+  const owner = hasOwnerAccess(s.profile.role);
+  const profit = orderProfit(s, o.id);
+  const expenses = s.expenses
+    .filter((e) => e.order_id === o.id)
+    .sort((a, b) => b.expense_date.localeCompare(a.expense_date));
   const versions = s.artwork
     .filter((a) => a.order_id === o.id)
     .sort((a, b) => b.version - a.version);
@@ -211,7 +221,7 @@ export default function OrderDetail({
                         ))}
                     </select>
                   </label>
-                  {hasOwnerAccess(s.profile.role) && (
+                  {owner && (
                     <label>
                       Total vendor cost · admin access
                       <input
@@ -241,6 +251,51 @@ export default function OrderDetail({
               </div>
             ))}
           </section>
+          {owner && (
+            <section className="panel">
+              <div className="section-title">
+                <h2>Expenses</h2>
+                <strong className="mono">{money(profit.expenses)}</strong>
+              </div>
+              <p style={{ fontSize: 12, marginBottom: 6 }}>
+                Logistics, samples, packaging and other costs of fulfilling this
+                order, in addition to the vendor costs above.
+              </p>
+              {expenses.map((e) => (
+                <div className="order-expense" key={e.id}>
+                  <div>
+                    <div className="row between">
+                      <strong>{e.category}</strong>
+                      <span className="mono">{money(e.amount)}</span>
+                    </div>
+                    <p>
+                      {[
+                        dateLabel(e.expense_date),
+                        s.vendors.find((v) => v.id === e.vendor_id)?.name || e.payee,
+                        e.payment_method,
+                        e.description,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  {expenseActions(e)}
+                </div>
+              ))}
+              {!expenses.length && (
+                <p className="order-expense-empty">No expenses recorded for this order.</p>
+              )}
+              <button
+                type="button"
+                className="button"
+                style={{ marginTop: 16 }}
+                disabled={busy}
+                onClick={onExpense}
+              >
+                <Plus size={15} /> Add expense
+              </button>
+            </section>
+          )}
           <section className="panel">
             <div className="section-title">
               <h2>Client sizes</h2>
@@ -671,6 +726,43 @@ export default function OrderDetail({
               </button>
             )}
           </section>
+          {owner && (
+            <section className="panel">
+              <div className="eyebrow">PROFITABILITY · ADMIN ACCESS</div>
+              <dl className="ledger" style={{ marginTop: 15 }}>
+                <div>
+                  <dt>Revenue before tax</dt>
+                  <dd>{money(profit.revenue)}</dd>
+                </div>
+                <div>
+                  <dt>Product / vendor costs</dt>
+                  <dd>{money(profit.itemCost)}</dd>
+                </div>
+                <div>
+                  <dt>Order expenses</dt>
+                  <dd>{money(profit.expenses)}</dd>
+                </div>
+                <div>
+                  <dt>Total order cost</dt>
+                  <dd>{money(profit.totalCost)}</dd>
+                </div>
+                <div className="ledger-total">
+                  <dt>{profit.grossProfit < 0 ? "Gross loss" : "Gross profit"}</dt>
+                  <dd>{money(profit.grossProfit)}</dd>
+                </div>
+                <div>
+                  <dt>Gross margin</dt>
+                  <dd>{profit.margin === null ? "—" : `${profit.margin.toFixed(1)}%`}</dd>
+                </div>
+              </dl>
+              {!profit.costsComplete && (
+                <p className="order-profit-note">
+                  Vendor costs are entered for {profit.costedItems} of{" "}
+                  {profit.itemCount} items, so this profit is provisional.
+                </p>
+              )}
+            </section>
+          )}
           <section className="panel">
             <h3>Payment history</h3>
             {s.payments

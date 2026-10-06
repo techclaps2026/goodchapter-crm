@@ -230,6 +230,40 @@ export interface Payment {
   reference: string;
   notes: string;
 }
+export const EXPENSE_CATEGORIES = [
+  "Procurement",
+  "Logistics",
+  "Samples",
+  "Packaging",
+  "Transportation",
+  "Printing",
+  "Miscellaneous",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+export const PAYMENT_METHODS = [
+  "UPI",
+  "Bank Transfer",
+  "Cash",
+  "Card",
+  "Cheque",
+  "Other",
+] as const;
+export interface Expense {
+  id: string;
+  order_id: string | null;
+  vendor_id: string | null;
+  category: ExpenseCategory;
+  amount: number;
+  expense_date: string;
+  payee: string;
+  payment_method: string;
+  description: string;
+  receipt_path: string;
+  receipt_name: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 export interface Snapshot {
   demo: boolean;
   profile: Profile;
@@ -246,6 +280,7 @@ export interface Snapshot {
   order_size_forms: OrderSizeForm[];
   followups: Followup[];
   payments: Payment[];
+  expenses: Expense[];
   order_vendors: {
     order_id: string;
     item_index: number;

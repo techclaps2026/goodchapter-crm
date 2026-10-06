@@ -1380,5 +1380,93 @@ await test("client size link saves rows and keeps other orders private", async (
   assert.notEqual(reopened.share_token, configured.share_token);
   assert.equal(reopened.entries.length, 1);
 });
+await test("expenses live in their own ledger and only owner-access roles see them", async () => {
+  const q = (await call("save_quote", {
+    title: "Expense QA order", client_id: client, lead_id: null,
+    valid_until: null, tax_mode: "None", items: [{ ...line, discount_pct: 0, tax_rate: 0 }],
+    terms: "",
+  })).id;
+  await call("quote_status", { id: q, status: "Accepted" });
+  const expenseOrder = (await call("convert_quote", { id: q })).id;
+  const vendor = (await call("save_vendor", {
+    name: "Expense QA vendor", category: "Packaging", contact_name: "",
+    email: "", phone: "", city: "", notes: "",
+  })).id;
+  const base = {
+    order_id: null, vendor_id: vendor, category: "Procurement", amount: 2500,
+    expense_date: "2026-10-06", payee: "", payment_method: "UPI",
+    description: "Blank notebooks", receipt_path: "", receipt_name: "",
+  };
+  const procurement = (await call("save_expense", base)).id;
+  let row = (await db.query("select * from expenses where id=$1", [procurement])).rows[0];
+  assert.equal(row.order_id, null);
+  assert.equal(Number(row.amount), 2500);
+  assert.equal(row.created_by, OWNER);
+  await call("save_expense", { ...base, id: procurement, order_id: expenseOrder });
+  row = (await db.query("select * from expenses where id=$1", [procurement])).rows[0];
+  assert.equal(row.order_id, expenseOrder);
+  assert.equal(row.created_by, OWNER);
+  assert.equal((await db.query(
+    "select count(*)::int n from information_schema.columns where table_name='orders' and column_name like '%expense%'",
+  )).rows[0].n, 0);
+  assert.equal((await db.query(
+    "select count(*)::int n from audit_events where action='save_expense' and record_id=$1", [procurement],
+  )).rows[0].n, 2);
+
+  await asUser(db, STAFF, async (tx) =>
+    assert.equal((await tx.query("select count(*)::int n from expenses")).rows[0].n, 0));
+  await assert.rejects(call("save_expense", base, id(), STAFF), /Owner access/);
+  await assert.rejects(asUser(db, OWNER, (tx) =>
+    tx.query("insert into expenses(category,amount,expense_date,payment_method,created_by) values('Samples',1,'2026-10-06','UPI',$1)", [OWNER])),
+    /permission denied/);
+
+  await assert.rejects(call("save_expense", { ...base, category: "Salary" }), /expenses_category_check/);
+  await assert.rejects(call("save_expense", { ...base, amount: 0 }), /positive amount/);
+  await assert.rejects(call("save_expense", { ...base, amount: 10.005 }), /positive amount/);
+  await assert.rejects(call("save_expense", { ...base, order_id: id() }), /Order not found/);
+  await assert.rejects(call("save_expense", { ...base, vendor_id: id() }), /Vendor not found/);
+  await assert.rejects(call("save_expense", { ...base, created_by: STAFF }), /Unexpected field/);
+  await assert.rejects(call("save_expense", { ...base, id: id() }), /Expense not found/);
+
+  const receipt = `${id()}.pdf`;
+  await assert.rejects(call("save_expense", { ...base, receipt_path: receipt, receipt_name: "bill.pdf" }),
+    /Upload the receipt/);
+  await db.query("insert into storage.objects(bucket_id,name) values('artwork',$1)", [receipt]);
+  await assert.rejects(call("save_expense", { ...base, receipt_path: receipt, receipt_name: "bill.pdf" }),
+    /Upload the receipt/);
+  await db.query("insert into storage.objects(bucket_id,name) values('expense-receipts',$1)", [receipt]);
+  const logistics = (await call("save_expense", {
+    ...base, order_id: expenseOrder, vendor_id: null, category: "Logistics", amount: 1200,
+    payee: "BlueDart", receipt_path: receipt, receipt_name: " bill.pdf ",
+  })).id;
+  row = (await db.query("select * from expenses where id=$1", [logistics])).rows[0];
+  assert.equal(row.receipt_name, "bill.pdf");
+  assert.equal(row.payee, "BlueDart");
+  await asUser(db, STAFF, async (tx) => assert.equal((await tx.query(
+    "select count(*)::int n from storage.objects where bucket_id='expense-receipts'",
+  )).rows[0].n, 0));
+  await call("save_expense", {
+    ...base, id: logistics, order_id: expenseOrder, vendor_id: null, category: "Logistics",
+    amount: 1200, receipt_path: "", receipt_name: "bill.pdf",
+  });
+  assert.deepEqual((await db.query("select receipt_path, receipt_name from expenses where id=$1", [logistics])).rows[0],
+    { receipt_path: "", receipt_name: "" });
+
+  const key = id();
+  const retry = { ...base, description: "Retried sample" };
+  const [first, second] = await Promise.all([
+    call("save_expense", retry, key), call("save_expense", retry, key),
+  ]);
+  assert.equal(first.id, second.id);
+  assert.equal((await db.query("select count(*)::int n from expenses where description='Retried sample'")).rows[0].n, 1);
+
+  await assert.rejects(call("delete_record", { kind: "order", id: expenseOrder }), /expenses/);
+  await assert.rejects(call("delete_record", { kind: "vendor", id: vendor }), /expenses/);
+  await assert.rejects(call("delete_record", { kind: "expense", id: logistics }, id(), STAFF), /Owner or Admin/);
+  for (const expenseId of [logistics, procurement, first.id])
+    await call("delete_record", { kind: "expense", id: expenseId });
+  assert.equal((await db.query("select count(*)::int n from expenses where order_id=$1", [expenseOrder])).rows[0].n, 0);
+  await call("delete_record", { kind: "order", id: expenseOrder });
+});
 console.log(`${passed} database scenarios passed`);
 await db.close();

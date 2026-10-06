@@ -27,6 +27,7 @@ const tables = [
   "order_size_forms",
   "followups",
   "payments",
+  "expenses",
 ] as const;
 export async function currentDemoUser() {
   return (await cookies()).get("tgc-demo-role")?.value === "staff"
@@ -87,7 +88,12 @@ export async function snapshot(): Promise<Snapshot> {
                   : "id",
             )
             .range(offset, offset + 999);
-          if (error) throw new Error(error.message);
+          if (error) {
+            // Expenses ship with a migration; until it runs, load the CRM without them.
+            if (t === "expenses" && ["PGRST205", "42P01"].includes(error.code))
+              break;
+            throw new Error(error.message);
+          }
           all.push(...data);
           if (data.length < 1000) break;
         }

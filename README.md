@@ -35,12 +35,13 @@ For a real staging Supabase project, copy `.env.example` to `.env.local`, popula
 4. Assign vendors, attach private artwork versions, and record approval of the latest version. Production requires approval or an explicit approval-not-required choice.
 5. Record courier, tracking and dispatch/delivery dates. Generate the order's invoice from Invoices or the order page, edit the draft, then issue it. An issued invoice can be revised into a new draft while the earlier version remains in history.
 6. Record advances and receipts against the order. Invoice payment state (Unpaid, Partially paid, Fully paid) and balance derive from that ledger. Use Reports for invoiced sales and outstanding balances.
+7. Record what the work costs. Enter each line's vendor cost on the order, then use the order's **Expenses** panel for logistics, samples, packaging, printing and other fulfilment costs. The order shows total cost, gross profit and gross margin on the pre-tax subtotal. Log stock, material and other purchases in **Finance → Expenses**, with or without an order, and link them to an order later if needed. Each expense has a category, date, vendor or payee, payment method, notes and an optional private receipt (PDF, JPG, PNG or WebP, up to 5 MB). Expenses can be filtered by date, category, vendor, order, client and payment method. Vendor spend and an April–March P&L are under **Vendors** and **Reports**.
 
 Quotes/invoices use INR. Reporting dates use Asia/Kolkata. Taxes start unset; the business supplies rates. Charges are ordinary itemised service lines. There is no stock ledger, gateway, purchase order, customer portal or accounting integration.
 
 ## Permissions and documents
 
-All active staff share operational records and customer-facing finance. Owner and Admin manage users; Co-owner has business, cost and margin access without user management. Staff cannot see vendor costs or margins. Database RLS protects reads; direct table writes are denied and writes use a role-checked transaction. Uninvited accounts have no access. Service-role credentials are used only by the Owner/Admin invitation endpoint.
+All active staff share operational records and customer-facing finance. Owner and Admin manage users; Co-owner has business, cost and margin access without user management. Staff cannot see vendor costs, expenses, receipts or margins. Database RLS protects reads; direct table writes are denied and writes use a role-checked transaction. Uninvited accounts have no access. Service-role credentials are used only by the Owner/Admin invitation endpoint.
 
 Deleting a teammate from User Management immediately removes their CRM access and moves them to Deleted users. Linked orders, assignments, approvals and financial/audit history remain intact. Owner/Admin can restore the profile; it stays inactive until explicitly reactivated.
 

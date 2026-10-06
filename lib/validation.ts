@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "./types";
 export const roleSchema = z.enum(["owner", "co_owner", "admin", "staff"]);
 export const invitationSchema = z.object({
   email: z.email(),
@@ -227,6 +228,22 @@ export const schemas = {
     reference: text,
     notes: text,
   }),
+  save_expense: z.object({
+    ...common,
+    order_id: optionalId,
+    vendor_id: optionalId,
+    category: z.enum(EXPENSE_CATEGORIES),
+    amount: amount.positive(),
+    expense_date: z.iso.date(),
+    payee: text.max(200),
+    payment_method: z.enum(PAYMENT_METHODS),
+    description: text.max(2000),
+    receipt_path: z.union([
+      z.literal(""),
+      z.string().regex(/^[0-9a-f-]{36}\.(pdf|jpg|png|webp)$/),
+    ]),
+    receipt_name: text.max(200),
+  }),
   delete_record: z.object({
     id,
     kind: z.enum([
@@ -239,6 +256,7 @@ export const schemas = {
       "quote",
       "invoice",
       "order",
+      "expense",
     ]),
   }),
   save_settings: z.object({

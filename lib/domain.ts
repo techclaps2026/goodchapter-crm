@@ -6,12 +6,15 @@ export const money = (n: number | string = 0) =>
     maximumFractionDigits: 2,
   }).format(Number(n));
 export function today() {
+  return istDate(new Date());
+}
+export function istDate(value: Date | string) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(new Date(value));
 }
 export function dateLabel(value: string | null | undefined) {
   return value

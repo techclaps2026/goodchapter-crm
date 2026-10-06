@@ -15,6 +15,7 @@ const recordNames: Record<string, string> = {
   quote: "Quotation",
   invoice: "Invoice",
   order: "Order",
+  expense: "Expense",
 };
 
 function successMessage(action: Action, payload: unknown) {

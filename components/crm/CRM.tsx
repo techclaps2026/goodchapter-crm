@@ -37,16 +37,19 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
+  HandCoins,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useCRM } from "./use-crm";
-import { Badge, Empty, Modal } from "./shared";
+import { Badge, Empty, Modal, table } from "./shared";
 import EntityForm, { type EntityKind } from "./EntityForm";
 import QuoteEditor from "./QuoteEditor";
 import DocumentView from "./DocumentView";
 import QuoteEngagement from "./QuoteEngagement";
 import OrderDetail from "./OrderDetail";
+import Expenses from "./Expenses";
+import ExpenseForm from "./ExpenseForm";
 import PaymentReceiptActions from "./PaymentReceiptActions";
 import Settings from "./Settings";
 import AccountSettings from "./AccountSettings";
@@ -65,7 +68,13 @@ import {
   orderMoney,
   paymentState,
 } from "@/lib/domain";
-import type { CommercialDocument, Snapshot, Followup } from "@/lib/types";
+import type {
+  CommercialDocument,
+  Snapshot,
+  Followup,
+  Expense,
+} from "@/lib/types";
+import { orderProfit } from "@/lib/expenses";
 import {
   canManageUsers,
   hasOwnerAccess,
@@ -97,6 +106,7 @@ const NAV: { group: string; items: [string, string, LucideIcon][] }[] = [
     items: [
       ["invoices", "Invoices", Receipt],
       ["payments", "Payments", Wallet],
+      ["expenses", "Expenses", HandCoins],
       ["reports", "Reports", BarChart3],
     ],
   },
@@ -133,6 +143,7 @@ const descriptions: Record<string, string> = {
   vendors: "The makers who bring your ideas to life.",
   invoices: "Clear documents. Confident collections.",
   payments: "Every advance, receipt and balance in one place.",
+  expenses: "Every cost behind the work, from procurement to delivery.",
   reports: "A clear view of your studio’s business.",
   settings: "Business details, documents and connected services.",
   users: "Invite teammates and manage their access.",
@@ -155,36 +166,6 @@ type FormState =
   | { kind: "quote"; doc?: CommercialDocument; clientId?: string }
   | { kind: "invoice"; doc: CommercialDocument }
   | null;
-function table(headers: string[], rows: React.ReactNode[][], empty: string, className = "") {
-  return (
-    <div className={`table-wrap ${className}`}>
-      <table>
-        <thead>
-          <tr>
-            {headers.map((h) => (
-              <th key={h}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((cells, i) => (
-            <tr key={i}>
-              {cells.map((c, j) => (
-                <td key={j} data-label={headers[j]}>{c}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!rows.length && (
-        <Empty
-          title={empty}
-          description="Add your first record, or adjust your search and filters."
-        />
-      )}
-    </div>
-  );
-}
 function clientLocation(address: string) {
   const parts = address.split(/[,\n]+/).map((part) => part.trim()).filter(Boolean);
   if (parts.at(-1)?.toLowerCase() === "india") parts.pop();
@@ -249,6 +230,10 @@ export default function CRM({
   const [filter, setFilter] = useState("All");
   const [vendorLocation, setVendorLocation] = useState("All locations");
   const [form, setForm] = useState<FormState>(null);
+  const [expenseForm, setExpenseForm] = useState<{
+    expense?: Expense;
+    orderId?: string;
+  } | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [qrBusy, setQrBusy] = useState(false);
   const [dueOn, setDueOn] = useState("");
@@ -296,6 +281,7 @@ export default function CRM({
     setFilter("All");
     setVendorLocation("All locations");
     setForm(null);
+    setExpenseForm(null);
     setEmailOpen(false);
     setInvoiceOpen(false);
     const href = id === "dashboard" ? "/" : `/${id}`;
@@ -416,7 +402,8 @@ export default function CRM({
       | "payment"
       | "quote"
       | "invoice"
-      | "order",
+      | "order"
+      | "expense",
     id: string,
     label: string,
     catalogPaths: string[] = [],
@@ -450,6 +437,19 @@ export default function CRM({
         {iconOnly ? <Trash2 size={16} aria-hidden="true" /> : "Delete"}
       </button>
     ) : null;
+  const expenseActions = (e: Expense) => (
+    <div className="row record-actions" key="actions">
+      <button
+        className="button small record-action"
+        aria-label={`Edit ${e.category} expense`}
+        title="Edit expense"
+        onClick={() => setExpenseForm({ expense: e })}
+      >
+        <Pencil size={16} aria-hidden="true" />
+      </button>
+      {removeRecord("expense", e.id, `this ${e.category.toLowerCase()} expense`, [], true)}
+    </div>
+  );
   const clientName = (id: string | null) =>
     s.clients.find((c) => c.id === id)?.organisation ||
     s.clients.find((c) => c.id === id)?.name ||
@@ -585,6 +585,11 @@ export default function CRM({
               : `New ${section === "quotations" ? "quotation" : { leads: "lead", clients: "client", followups: "follow-up", products: "product", vendors: "vendor" }[section]}`}
           </button>
         )}
+      {section === "expenses" && !recordId && (
+        <button className="button primary" onClick={() => setExpenseForm({})}>
+          <Plus size={15} /> Add expense
+        </button>
+      )}
       {section === "invoices" && !recordId && (
         <button className="button primary" onClick={() => setInvoiceOpen(true)}>
           <Plus size={15} /> Generate invoice
@@ -1022,6 +1027,8 @@ export default function CRM({
           setForm({ kind: "payment", initial: { order_id: order.id } })
         }
         onInvoice={(id) => router.push("/invoices/" + id)}
+        onExpense={() => setExpenseForm({ orderId: order.id })}
+        expenseActions={expenseActions}
       />
     );
   else if (client)
@@ -1546,6 +1553,8 @@ export default function CRM({
         )}
       </>
     );
+  else if (section === "expenses")
+    body = <Expenses s={s} rowActions={expenseActions} />;
   else if (section === "reports") body = <Reports s={s} />;
   else if (section === "social")
     body = (
@@ -1594,6 +1603,7 @@ export default function CRM({
                 .filter(
                   ([id]) =>
                     (id !== "settings" || owner) &&
+                    (id !== "expenses" || owner) &&
                     (id !== "users" || canManageUsers(s.profile.role)) &&
                     (id !== "social" || canManageUsers(s.profile.role)) &&
                     (id !== "mail" || canManageUsers(s.profile.role)),
@@ -1745,6 +1755,23 @@ export default function CRM({
             doc={doc}
             demo={s.demo}
             onDone={() => setEmailOpen(false)}
+          />
+        </Modal>
+      )}
+      {expenseForm && (
+        <Modal
+          title={expenseForm.expense ? "Edit expense" : "Add expense"}
+          onClose={() => {
+            if (!busy) setExpenseForm(null);
+          }}
+        >
+          <ExpenseForm
+            s={s}
+            expense={expenseForm.expense}
+            orderId={expenseForm.orderId}
+            mutate={mutate}
+            busy={busy}
+            onDone={() => setExpenseForm(null)}
           />
         </Modal>
       )}
@@ -1995,17 +2022,7 @@ function Reports({ s }: { s: Snapshot }) {
   const rows = s.orders.map((o) => ({
     o,
     ...orderMoney(s, o.id),
-    cost: s.order_costs
-      .filter((c) => c.order_id === o.id)
-      .reduce((n, c) => n + Number(c.amount), 0),
-    priced: s.order_costs.filter((c) => c.order_id === o.id).length,
-    pricedDocument:
-      s.documents.find(
-        (d) =>
-          d.kind === "invoice" &&
-          d.order_id === o.id &&
-          d.status !== "Superseded",
-      ) ?? s.documents.find((d) => d.id === o.quote_id)!,
+    profit: orderProfit(s, o.id),
   }));
   const owner = hasOwnerAccess(s.profile.role);
   return (
@@ -2049,7 +2066,9 @@ function Reports({ s }: { s: Snapshot }) {
           "Value",
           "Received",
           "Balance",
-          ...(owner ? ["Recorded cost", "Estimated margin"] : []),
+          ...(owner
+            ? ["Item costs", "Expenses", "Gross profit", "Margin"]
+            : []),
         ],
         rows.map((r) => [
           <Link key="o" className="text-link" href={"/orders/" + r.o.id}>
@@ -2062,10 +2081,14 @@ function Reports({ s }: { s: Snapshot }) {
           money(r.balance),
           ...(owner
             ? [
-                money(r.cost),
-                r.priced === r.pricedDocument.items.length
-                  ? money(Number(r.pricedDocument.subtotal) - r.cost)
+                money(r.profit.itemCost),
+                money(r.profit.expenses),
+                r.profit.costsComplete
+                  ? money(r.profit.grossProfit)
                   : "Costs incomplete",
+                r.profit.costsComplete && r.profit.margin !== null
+                  ? `${r.profit.margin.toFixed(1)}%`
+                  : "—",
               ]
             : []),
         ]),
@@ -2076,7 +2099,7 @@ function Reports({ s }: { s: Snapshot }) {
         of refunds. Cancelled orders remain in history and are excluded from
         operational outstanding totals.
         {owner
-          ? " Estimated margin is the pre-tax selling subtotal less recorded item costs; it is shown only when every item has a cost."
+          ? " Gross profit is the pre-tax selling subtotal less recorded item costs and order expenses; it is shown only when every item has a cost."
           : ""}
       </p>
     </>

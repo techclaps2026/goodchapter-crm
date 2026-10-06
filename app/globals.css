@@ -1668,6 +1668,8 @@ label.order-size-choice { display: flex; flex-direction: row; align-items: cente
 .mail-center { min-width: 0; }
 .mail-connect { max-width: 760px; }
 .mail-tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; border-bottom: 1px solid var(--border); }
+.expense-tabs { overflow-x: auto; flex-wrap: nowrap; }
+.expense-tabs button { white-space: nowrap; }
 .mail-tabs button { border: 0; background: none; padding: 12px 16px; color: var(--muted-foreground); cursor: pointer; font-weight: 600; }
 .mail-tabs button.active { color: var(--foreground); border-bottom: 2px solid var(--secondary); }
 .mail-tabs button span { color: var(--muted-foreground); font-size: 11px; margin-left: 4px; }
@@ -1783,4 +1785,29 @@ label.order-size-choice { display: flex; flex-direction: row; align-items: cente
     size: A4;
     margin: 16mm;
   }
+}
+.expense-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.expense-filters .search { width: 100%; }
+.expense-filter-search { grid-column: span 2; }
+.expense-filter-clear { justify-self: start; min-height: 42px; }
+.expense-table td { vertical-align: top; }
+.expense-details { display: block; max-width: 260px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ledger { margin: 0; display: grid; gap: 10px; font-size: 13px; }
+.ledger > div { display: flex; justify-content: space-between; gap: 16px; }
+.ledger dt { color: var(--muted-foreground); }
+.ledger dt small { display: block; font-size: 11px; margin-top: 2px; }
+.ledger dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ledger .ledger-total { border-top: 1px solid var(--border); padding-top: 12px; font-weight: 600; }
+.ledger .ledger-total dt { color: var(--foreground); }
+.order-expense { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+.order-expense > div:first-child { flex: 1; min-width: 0; }
+.order-expense p { font-size: 12px; margin-top: 4px; overflow-wrap: anywhere; }
+.order-expense-empty { font-size: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.order-profit-note { margin-top: 14px; padding: 10px 12px; font-size: 12px; background: #f4ead0; color: var(--warning); }
+@media (max-width: 879px) {
+  .expense-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .expense-filters { grid-template-columns: minmax(0, 1fr); }
+  .expense-filter-search { grid-column: auto; }
 }

@@ -115,7 +115,7 @@ export async function seedDemo(db) {
     },
   ])
     await mutate(db, "save_product", { ...p, image_url: "" });
-  await mutate(db, "save_vendor", {
+  const vendor = (await mutate(db, "save_vendor", {
     name: "Thread & Form Studio",
     category: "Apparel",
     contact_name: "Kabir",
@@ -123,7 +123,7 @@ export async function seedDemo(db) {
     phone: "",
     city: "Delhi",
     notes: "",
-  });
+  })).id;
   for (const [i, l] of [
     {
       name: "Meera Shah",
@@ -181,13 +181,15 @@ export async function seedDemo(db) {
     hsn: "",
     details: "Artwork and colour to be approved",
   });
-  for (const [title, client_id, items, status, due] of [
+  const orders = [];
+  for (const [title, client_id, items, status, due, cost] of [
     [
       "A good start · welcome kits",
       c1,
       [line("Welcome kit", 80, 1450, "Gift boxes")],
       "Production",
       8,
+      82000,
     ],
     [
       "Studio anniversary tees",
@@ -195,6 +197,7 @@ export async function seedDemo(db) {
       [line("Heavyweight cotton tee", 120, 650)],
       "Design & Approval",
       12,
+      52000,
     ],
   ]) {
     const q = (
@@ -210,6 +213,9 @@ export async function seedDemo(db) {
     ).id;
     await mutate(db, "quote_status", { id: q, status: "Accepted" });
     const o = (await mutate(db, "convert_quote", { id: q })).id;
+    orders.push(o);
+    await mutate(db, "assign_vendor", { order_id: o, item_index: 0, vendor_id: vendor });
+    await mutate(db, "save_cost", { order_id: o, item_index: 0, amount: cost });
     await mutate(db, "save_order", {
       id: o,
       status,
@@ -236,6 +242,21 @@ export async function seedDemo(db) {
       notes: "Fictional sample receipt",
     });
   }
+  const expense = {
+    vendor_id: null,
+    payee: "",
+    payment_method: "UPI",
+    receipt_path: "",
+    receipt_name: "",
+  };
+  for (const e of [
+    { order_id: orders[0], category: "Logistics", amount: 1200, expense_date: days(-1), payee: "Delhivery", description: "Delivery to the client office" },
+    { order_id: orders[0], category: "Samples", amount: 500, expense_date: days(-6), description: "Pre-production sample kit" },
+    { order_id: orders[0], category: "Packaging", amount: 300, expense_date: days(-3), vendor_id: vendor, payment_method: "Bank Transfer", description: "Tissue and sleeve wrap" },
+    { order_id: orders[1], category: "Printing", amount: 1800, expense_date: days(-4), payee: "Screen setup", description: "Two-colour screen setup" },
+    { order_id: null, category: "Procurement", amount: 6500, expense_date: days(-9), payee: "Kraft Box Co.", payment_method: "Bank Transfer", description: "200 kraft gift boxes for stock" },
+  ])
+    await mutate(db, "save_expense", { ...expense, ...e });
   await mutate(db, "save_quote", {
     title: "Festive desk essentials",
     client_id: c2,

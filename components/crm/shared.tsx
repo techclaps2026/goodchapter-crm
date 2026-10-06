@@ -134,3 +134,33 @@ export function Totals({
     </div>
   );
 }
+export function table(headers: string[], rows: React.ReactNode[][], empty: string, className = "") {
+  return (
+    <div className={`table-wrap ${className}`}>
+      <table>
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((cells, i) => (
+            <tr key={i}>
+              {cells.map((c, j) => (
+                <td key={j} data-label={headers[j]}>{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!rows.length && (
+        <Empty
+          title={empty}
+          description="Add your first record, or adjust your search and filters."
+        />
+      )}
+    </div>
+  );
+}
